@@ -1,0 +1,65 @@
+WHITESPACE = _{ " " | NEWLINE }
+
+number = ${ "-"* ~ (ASCII_DIGIT | ".")+ }
+
+identifier = ${ !letk ~ ASCII_ALPHA+ }
+
+add = { "+" }
+sub = { "-" }
+mul = { "*" }
+div = { "/" }
+pow = { "^" }
+abs = { "%" }
+grt = { ">" }
+lst = { "<" }
+gre = { ">=" }
+lse = { "<=" }
+equals = { "=" }
+comma = { "," }
+lparen = _{ "(" }
+rparen = _{ ")" }
+lcurlb = { "{" }
+rcurlb = { "}" }
+lsquarb = { "[" }
+rsquarb = { "]" }
+rarrow = _{ "=>" }
+bar = { "|" }
+
+high_prec_op = _{ (mul | div | abs | grt | lst | gre | lse) }
+
+arg_list = { lparen ~ expression ~ (comma ~ expression)* ~ rparen }
+func_call = { identifier ~ arg_list }
+
+value = { (rloop | func_call | parens | identifier | number) ~ (pow ~ value)* }
+term = { value ~ (high_prec_op ~ term)* }
+parens = _{ lparen ~ expression ~ rparen }
+
+expression = { ((term ~ ((add | sub) ~ term)*) | negation_expression) ~ conditional? }
+negation_expression = { "-" ~ expression }
+
+letk = _{ "let" }
+
+param_list = { lparen ~ identifier ~ (comma ~ identifier)* ~ rparen }
+func_decl = { letk ~ identifier ~ param_list ~ equals ~ expression_or_tree }
+
+var_decl = { letk ~ identifier ~ equals ~ expression_or_tree }
+
+assignment = { identifier ~ equals ~ (identifier ~ equals)* ~ expression_or_tree }
+
+tree = { lcurlb ~ action* ~ rcurlb }
+expression_or_tree = _{ (tree | expression) }
+
+conditional = { rarrow ~ expression_or_tree ~ bar ~ expression_or_tree }
+
+rloop = { identifier ~ ":" ~ range ~ rarrow ~ expression_or_tree }
+range = { lsquarb ~ expression ~ comma ~ expression ~ comma ~ expression ~ rsquarb }
+
+action = _{
+    func_decl
+    | var_decl
+    | rloop
+    | assignment
+    | expression_or_tree
+}
+
+file = { SOI ~ action* ~ EOI }

@@ -1,0 +1,10 @@
+let length(v) = (x(v)^2 + y(v)^2)^0.5
+
+let rotvec(v, r) = {
+    let s = sin(r)
+    let c = cos(r)
+
+    vec(x(v) * c - y(v) * s, x(v) * s + y(v) * c)
+}
+
+let dot(x, y) = x(x) * x(y) + y(x) * y(y)
