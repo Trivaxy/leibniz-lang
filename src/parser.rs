@@ -44,11 +44,10 @@ pub fn parse_leibniz_file(file: &str) -> Result<ParserNode, String> {
     let root = match LeibnizParser::parse(Rule::file, file) {
         Ok(mut pair) => pair.next().unwrap(),
         Err(pair) => {
-            println!("{:#?}", pair);
             return Err(get_error_message(file, pair));
         }
     };
-
+    
     let mut nodes = Vec::new();
 
     for pair in root.into_inner() {
@@ -116,25 +115,24 @@ fn parse_expression(expression: Pair<Rule>) -> ParserNode {
         return parse_negation_expression(pairs[0].clone());
     }
 
-    let left_side = parse_term(pairs[0].clone());
-
     if pairs.len() == 1 {
-        return left_side;
+        return parse_term(pairs[0].clone());
     }
 
-    if pairs.len() == 2 {
-        return parse_conditional(pairs[1].clone(), left_side);
+    let mut operation = parse_term(pairs[0].clone());
+    let conditional_offset = if pairs.last().unwrap().as_rule() == Rule::conditional { 1 } else { 0 };
+
+    for i in (0..pairs.len() - 1 - conditional_offset).step_by(2) {
+        let operator = parse_operator(pairs[i + 1].clone());
+        let right = parse_term(pairs[i + 2].clone());
+        operation = ParserNode::Operation(Box::new(operation), operator, Box::new(right));
     }
 
-    let operator = parse_operator(pairs[1].clone());
-    let right_side = parse_term(pairs[2].clone());
-    let expression = ParserNode::Operation(Box::new(left_side), operator, Box::new(right_side));
-
-    if pairs.last().unwrap().as_rule() == Rule::conditional {
-        return parse_conditional(pairs[pairs.len() - 1].clone(), expression);
+    if conditional_offset > 0 {
+        return parse_conditional(pairs[pairs.len() - 1].clone(), operation);
     }
-
-    expression
+    
+    operation
 }
 
 fn parse_negation_expression(expression: Pair<Rule>) -> ParserNode {

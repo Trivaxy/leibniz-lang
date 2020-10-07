@@ -115,7 +115,7 @@ impl Value {
     fn greater_than(self, rhs: Value) -> ValueOutput {
         match self {
             Number(n) => match rhs {
-                Number(n2) => Ok(if n > n2 {Number(1.0)} else {Number(-1.0)}),
+                Number(n2) => Ok(if n > n2 {Number(1.0)} else {Number(0.0)}),
                 Vector(_, _) => Err("cannot compare greater-than between a number and vector".into())
             },
             Vector(_, _) => match rhs {
@@ -128,7 +128,7 @@ impl Value {
     fn less_than(self, rhs: Value) -> ValueOutput {
         match self {
             Number(n) => match rhs {
-                Number(n2) => Ok(if n < n2 {Number(1.0)} else {Number(-1.0)}),
+                Number(n2) => Ok(if n < n2 {Number(1.0)} else {Number(0.0)}),
                 Vector(_, _) => Err("cannot compare less-than between a number and vector".into())
             },
             Vector(_, _) => match rhs {
@@ -141,7 +141,7 @@ impl Value {
     fn greater_than_or_equals(self, rhs: Value) -> ValueOutput {
         match self {
             Number(n) => match rhs {
-                Number(n2) => Ok(if n >= n2 {Number(1.0)} else {Number(-1.0)}),
+                Number(n2) => Ok(if n >= n2 {Number(1.0)} else {Number(0.0)}),
                 Vector(_, _) => Err("cannot compare greater-than-or-equals between a number and vector".into())
             },
             Vector(_, _) => match rhs {
@@ -154,7 +154,7 @@ impl Value {
     fn less_than_or_equals(self, rhs: Value) -> ValueOutput {
         match self {
             Number(n) => match rhs {
-                Number(n2) => Ok(if n <= n2 {Number(1.0)} else {Number(-1.0)}),
+                Number(n2) => Ok(if n <= n2 {Number(1.0)} else {Number(0.0)}),
                 Vector(_, _) => Err("cannot compare greater-than-or-equals between a number and vector".into())
             },
             Vector(_, _) => match rhs {
@@ -338,7 +338,7 @@ impl<'a> RuntimeState<'a> {
             ParserNode::Operation(left, operator, right) => {
                 let left = self.evaluate(&*left)?;
                 let right = self.evaluate(&*right)?;
-    
+
                 Ok(match operator {
                     Operator::Add => (left + right)?,
                     Operator::Subtract => (left - right)?,
@@ -423,7 +423,7 @@ impl<'a> RuntimeState<'a> {
             },
             ParserNode::Conditional(predicate, true_expr, false_expr) => {
                 let predicate = self.evaluate(&*predicate)?.expect_number("a predicate to a conditional expression must be a number")?;
-
+                
                 if predicate != 0.0 {
                     return Ok(self.evaluate(&*true_expr)?);
                 }

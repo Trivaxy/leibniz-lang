@@ -100,7 +100,7 @@ let x = {
     y
 }
 ```
-is valid.
+is valid, because `y` alone is a valid expression.
 
 Leibniz has another construct, called ranges, which can act as a looping construct.
 ```rust
@@ -115,7 +115,7 @@ x: [0, 10, 1] => x * 3
 ```
 actually evaluates to `165`. (`0 + 3 + 6 + 9 + 12 + 15 + 18 + 21 + 24 + 27 + 30`)
 
-This makes ranges almost the equivalent of the sigma notation in math, the primary difference being you can also loop from an upper bound to a lower bound, and use decimal ranges.
+This makes ranges almost the equivalent of the sigma notation in math, the primary difference being you can also loop from an upper bound to a lower bound, and ranges don't strictly have to be integers.
 
 Let's move on to Leibniz's second data type, `Vector`.
 
@@ -124,11 +124,20 @@ Creating a vector is possible through the builtin `vec` function Leibniz provide
 let myvec = vec(2, 5)
 ```
 
-`Vector`s can be multiplied, divided and raised to the power of `RealNumber`s. Other operations regarding them are not valid, thus the standard library (heavy WIP) offers a lot of functionality for vectors.
+`Vector`s can be multiplied, divided and raised to the power of `RealNumber`s. Other operations regarding them are not valid, thus the standard library (heavy WIP) offers functions that help with manipulating and working with vectors.
 
-You can access the x and y component of a `Vector` through the `x` and `y` functions.
+You can access the x and y component of a `Vector` through the builtin `x` and `y` functions. Each return the respective component of the `Vector`.
 ```rust
 let myvec = vec(2, 5) // (2, 5)
 x(myvec) // 2
 y(myvec) // 5
 ```
+
+# Todo
+- Implement the rest of Leibniz types, such as matrices, imaginary numbers and so on
+- Make the interpreter optimize Leibniz code
+- Work on the Leibniz standard library
+- Make it possible to create graphical interactions using Leibniz
+- Explore the possibility of automatic derivation and integration
+
+
