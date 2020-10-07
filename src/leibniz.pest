@@ -1,6 +1,6 @@
 WHITESPACE = _{ " " | NEWLINE }
 
-number = ${ "-"* ~ (ASCII_DIGIT | ".")+ }
+number = ${ "-"* ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT+)* }
 
 identifier = ${ !letk ~ ASCII_ALPHA+ }
 
@@ -16,6 +16,7 @@ gre = { ">=" }
 lse = { "<=" }
 equals = { "=" }
 comma = { "," }
+dotdot = { ".." }
 lparen = _{ "(" }
 rparen = _{ ")" }
 lcurlb = { "{" }
@@ -52,7 +53,7 @@ expression_or_tree = _{ (tree | expression) }
 conditional = { rarrow ~ expression_or_tree ~ bar ~ expression_or_tree }
 
 rloop = { identifier ~ ":" ~ range ~ rarrow ~ expression_or_tree }
-range = { lsquarb ~ expression ~ comma ~ expression ~ comma ~ expression ~ rsquarb }
+range = { lsquarb ~ expression ~ dotdot ~ expression ~ comma ~ expression ~ rsquarb }
 
 action = _{
     func_decl

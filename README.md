@@ -104,14 +104,14 @@ is valid, because `y` alone is a valid expression.
 
 Leibniz has another construct, called ranges, which can act as a looping construct.
 ```rust
-x: [0, 10, 1] => x * 3
+x: [0..10, 1] => x * 3
 ```
 
 This is similar to for-loops in other languages. Leibniz will step through from `0` to `10`, both bounds inclusive, with a step of `1`, and assign it to the temporary variable `x`. The body will then evaluate for each `x`, and you can do whatever you want with it. The bounds and step can also be decimals instead of integers.
 
 Another powerful feature of ranges is that they are also an expression, which implicitly evaluates to their *sum*. Thus, the following snippet of code:
 ```rust
-x: [0, 10, 1] => x * 3
+x: [0..10, 1] => x * 3
 ```
 actually evaluates to `165`. (`0 + 3 + 6 + 9 + 12 + 15 + 18 + 21 + 24 + 27 + 30`)
 
