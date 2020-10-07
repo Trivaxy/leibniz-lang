@@ -281,6 +281,28 @@ impl<'a> RuntimeState<'a> {
                 Ok(Number(num.tan()))
             }));
 
+        self.add_builtin("log", BuiltinFunction::new(
+            1,
+            |params| {
+                let num = params[0].expect_number("expected number to find logarithm of")?;
+                Ok(Number(num.log10()))
+            }));
+
+        self.add_builtin("logn", BuiltinFunction::new(
+            2,
+            |params| {
+                let n = params[0].expect_number("expected base to logarithm")?;
+                let x = params[1].expect_number("expected number to find logarithm of")?;
+                Ok(Number(x.log(n)))
+            }));
+
+        self.add_builtin("ln", BuiltinFunction::new(
+            1,
+            |params| {
+                let num = params[0].expect_number("expected number to find natural logarithm of")?;
+                Ok(Number(num.ln()))
+            }));
+
         self.add_builtin("print", BuiltinFunction::new(
             1,
             |params| {
@@ -423,7 +445,7 @@ impl<'a> RuntimeState<'a> {
             },
             ParserNode::Conditional(predicate, true_expr, false_expr) => {
                 let predicate = self.evaluate(&*predicate)?.expect_number("a predicate to a conditional expression must be a number")?;
-                
+
                 if predicate != 0.0 {
                     return Ok(self.evaluate(&*true_expr)?);
                 }
