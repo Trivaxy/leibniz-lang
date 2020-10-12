@@ -1,10 +1,11 @@
-use std::{collections::HashMap, fmt};
-use std::ops;
+use std::{collections::HashMap, fmt, ops};
 use crate::parser::{Operator, ParserNode};
 use Value::*;
+use num_complex::Complex64;
 
+#[derive(Debug)]
 pub enum Value {
-    Number(f64),
+    Number(Complex64),
     Vector(f64, f64)
 }
 
@@ -15,8 +16,8 @@ impl ops::Add<Value> for Value {
 
     fn add(self, rhs: Value) -> Self::Output {
         match self {
-            Number(n) => match rhs {
-                Number(n2) => Ok(Number(n + n2)),
+            Number(c) => match rhs {
+                Number(c2) => Ok(Number(c + c2)),
                 Vector(_, _) => Err("cannot add a number to a vector".into())
             },
             Vector(x, y) => match rhs {
@@ -32,8 +33,8 @@ impl ops::Sub<Value> for Value {
 
     fn sub(self, rhs: Value) -> Self::Output {
         match self {
-            Number(n) => match rhs {
-                Number(n2) => Ok(Number(n - n2)),
+            Number(c) => match rhs {
+                Number(c2) => Ok(Number(c - c2)),
                 Vector(_, _) => Err("cannot subtract a number from a vector".into())
             },
             Vector(x, y) => match rhs {
@@ -49,12 +50,24 @@ impl ops::Mul<Value> for Value {
 
     fn mul(self, rhs: Value) -> Self::Output {
         match self {
-            Number(n) => match rhs {
-                Number(n2) => Ok(Number(n * n2)),
-                Vector(x, y) => Ok(Vector(x * n, y * n))
+            Number(c) => match rhs {
+                Number(c2) => {
+                    Ok(Number(c * c2))
+                },
+                Vector(x, y) => if c.im != 0.0 {
+                    Err("cannot multiply a vector with a complex number".into())
+                }
+                else {
+                    Ok(Vector(x * c.re, y * c.re))
+                }
             },
             Vector(x, y) => match rhs {
-                Number(n) => Ok(Vector(x * n, y * n)),
+                Number(c) => if c.im != 0.0 {
+                    Err("cannot multiply a vector with a complex number".into())
+                }
+                else {
+                    Ok(Vector(x * c.re, y * c.re))
+                }
                 Vector(_, _) => Err("cannot multiply a vector with a vector. use dot(vector, vector) or cross(vector, vector) instead".into())
             }
         }
@@ -66,13 +79,25 @@ impl ops::Div<Value> for Value {
 
     fn div(self, rhs: Value) -> Self::Output {
         match self {
-            Number(n) => match rhs {
-                Number(n2) => Ok(Number(n / n2)),
-                Vector(x, y) => Ok(Vector(x / n, y / n))
+            Number(c) => match rhs {
+                Number(c2) => {
+                    Ok(Number(c / c2))
+                },
+                Vector(x, y) => if c.im != 0.0 {
+                    Err("cannot divide a vector by a complex number".into())
+                }
+                else {
+                    Ok(Vector(x / c.re, y / c.re))
+                }
             },
             Vector(x, y) => match rhs {
-                Number(n) => Ok(Vector(x / n, y / n)),
-                Vector(_, _) => Err("cannot divide a vector by another vector".into())
+                Number(c) => if c.im != 0.0 {
+                    Err("cannot divide a vector by a complex number".into())
+                }
+                else {
+                    Ok(Vector(x / c.re, y / c.re))
+                }
+                Vector(_, _) => Err("cannot divide a vector by a vector".into())
             }
         }
     }
@@ -85,8 +110,8 @@ impl ops::Rem<Value> for Value {
         use Value::*;
 
         match self {
-            Number(n) => match rhs {
-                Number(n2) => Ok(Number(n % n2)),
+            Number(c) => match rhs {
+                Number(c2) => Ok(Number(c % c2)),
                 Vector(_, _) => Err("cannot find remainder between number and vector".into())
             },
             Vector(_, _) => match rhs {
@@ -97,16 +122,28 @@ impl ops::Rem<Value> for Value {
     }
 }
 
-// here are operators not overloadable in rust
 impl Value {
     fn pow(self, rhs: Value) -> ValueOutput {
         match self {
-            Number(n) => match rhs {
-                Number(n2) => Ok(Number(n.powf(n2))),
-                Vector(_, _) => Err("cannot raise a vector to a numeric power".into())
+            Number(c) => match rhs {
+                Number(c2) => if c.im == 0.0 && c.re == 0.0 {
+                    Ok(Value::real(0.0))
+                }
+                else if c2.im == 0.0 && c2.re == 0.0 {
+                    Ok(Value::real(1.0))
+                }
+                else {
+                    Ok(Number(c.powc(c2)))
+                },
+                Vector(_, _) => Err("cannot raise a number to a vector power".into())
             },
             Vector(x, y) => match rhs {
-                Number(n) => Ok(Vector(x.powf(n), y.powf(n))),
+                Number(c) => if c.im != 0.0 {
+                    Err("cannot raise vector to a complex power".into())
+                }
+                else {
+                    Ok(Vector(x.powf(c.re), y.powf(c.re)))
+                }
                 Vector(_, _) => Err("cannot raise a vector to a vector power".into())
             }
         }
@@ -114,8 +151,8 @@ impl Value {
 
     fn greater_than(self, rhs: Value) -> ValueOutput {
         match self {
-            Number(n) => match rhs {
-                Number(n2) => Ok(if n > n2 {Number(1.0)} else {Number(0.0)}),
+            Number(c) => match rhs {
+                Number(c2) => Ok(if c.norm() > c2.norm() {Number(Complex64::new(1.0, 0.0))} else {Number(Complex64::new(0.0, 0.0))}),
                 Vector(_, _) => Err("cannot compare greater-than between a number and vector".into())
             },
             Vector(_, _) => match rhs {
@@ -127,8 +164,8 @@ impl Value {
 
     fn less_than(self, rhs: Value) -> ValueOutput {
         match self {
-            Number(n) => match rhs {
-                Number(n2) => Ok(if n < n2 {Number(1.0)} else {Number(0.0)}),
+            Number(c) => match rhs {
+                Number(c2) => Ok(if c.norm() < c2.norm() {Number(Complex64::new(1.0, 0.0))} else {Number(Complex64::new(0.0, 0.0))}),
                 Vector(_, _) => Err("cannot compare less-than between a number and vector".into())
             },
             Vector(_, _) => match rhs {
@@ -140,8 +177,8 @@ impl Value {
 
     fn greater_than_or_equals(self, rhs: Value) -> ValueOutput {
         match self {
-            Number(n) => match rhs {
-                Number(n2) => Ok(if n >= n2 {Number(1.0)} else {Number(0.0)}),
+            Number(c) => match rhs {
+                Number(c2) => Ok(if c.norm() >= c2.norm() {Number(Complex64::new(1.0, 0.0))} else {Number(Complex64::new(0.0, 0.0))}),
                 Vector(_, _) => Err("cannot compare greater-than-or-equals between a number and vector".into())
             },
             Vector(_, _) => match rhs {
@@ -153,8 +190,8 @@ impl Value {
 
     fn less_than_or_equals(self, rhs: Value) -> ValueOutput {
         match self {
-            Number(n) => match rhs {
-                Number(n2) => Ok(if n <= n2 {Number(1.0)} else {Number(0.0)}),
+            Number(c) => match rhs {
+                Number(c2) => Ok(if c.norm() <= c2.norm() {Number(Complex64::new(1.0, 0.0))} else {Number(Complex64::new(0.0, 0.0))}),
                 Vector(_, _) => Err("cannot compare greater-than-or-equals between a number and vector".into())
             },
             Vector(_, _) => match rhs {
@@ -164,10 +201,22 @@ impl Value {
         }
     }
 
-    fn expect_number<'a>(&self, message: &'a str) -> Result<f64, &'a str> {
+    fn expect_real<'a>(&self, message: &'a str) -> Result<f64, &'a str> {
         match self {
-            Number(n) => Ok(*n),
-            _ => Err(message),
+            Number(c) => if c.im == 0.0 {
+                Ok(c.re)
+            }
+            else {
+                Err(message)
+            },
+            Vector(_, _) => Err(message)
+        }
+    }
+
+    fn expect_complex<'a>(&self, message: &'a str) -> Result<Complex64, &'a str> {
+        match self {
+            Number(c) => Ok(*c),
+            Vector(_, _) => Err(message)
         }
     }
 
@@ -177,12 +226,35 @@ impl Value {
             _ => Err(message)
         }
     }
+
+    fn real(r: f64) -> Self {
+        Number(Complex64::new(r, 0.0))
+    }
+
+    fn imaginary(i: f64) -> Self {
+        Number(Complex64::new(0.0, i))
+    }
 }
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Number(n) => write!(f, "{}", n),
+            Number(c) => if c.im == 0.0 {
+                write!(f, "{}", c.re)
+            }
+            else if c.re == 0.0 {
+                write!(f, "{}i", c.im)
+            }
+            else {
+                let i_sign = if c.im >= 0.0 {
+                    "+"
+                }
+                else {
+                    ""
+                };
+
+                write!(f, "{}{}{}i", c.re, i_sign, c.im)
+            },
             Vector(x, y) => write!(f, "({}, {})", x, y)
         }
     }
@@ -229,13 +301,13 @@ impl<'a> RuntimeState<'a> {
     }
 
     fn add_default_globals_and_functions(&mut self) {
-        self.add_global("pi", Value::Number(std::f64::consts::PI));
+        self.add_global("pi", Value::real(std::f64::consts::PI));
 
         self.add_builtin("vec", BuiltinFunction::new(
             2,
             |params| {
-                let x = params[0].expect_number("the x component of the vector is not a number")?;
-                let y = params[1].expect_number("the x component of the vector is not a number")?;
+                let x = params[0].expect_real("the x component of the vector is not a number")?;
+                let y = params[1].expect_real("the x component of the vector is not a number")?;
                 Ok(Vector(x, y))
             }));
 
@@ -243,63 +315,56 @@ impl<'a> RuntimeState<'a> {
             1,
             |params| {
                 let vec = params[0].expect_vec("expected vector to take x component out of")?;
-                Ok(Number(vec.0))
+                Ok(Value::real(vec.0))
             }));
 
         self.add_builtin("y", BuiltinFunction::new(
             1,
             |params| {
                 let vec = params[0].expect_vec("expected vector to take y component out of")?;
-                Ok(Number(vec.1))
-            }));
-
-        self.add_builtin("y", BuiltinFunction::new(
-            1,
-            |params| {
-                let vec = params[0].expect_vec("expected vector to take y component out of")?;
-                Ok(Number(vec.1))
+                Ok(Value::real(vec.1))
             }));
 
         self.add_builtin("sin", BuiltinFunction::new(
             1,
             |params| {
-                let num = params[0].expect_number("expected number to find sine of")?;
+                let num = params[0].expect_complex("expected number to find sine of")?;
                 Ok(Number(num.sin()))
             }));
 
         self.add_builtin("cos", BuiltinFunction::new(
             1,
             |params| {
-                let num = params[0].expect_number("expected number to find cosine of")?;
+                let num = params[0].expect_complex("expected number to find cosine of")?;
                 Ok(Number(num.cos()))
             }));
 
         self.add_builtin("tan", BuiltinFunction::new(
             1,
             |params| {
-                let num = params[0].expect_number("expected number to find tangent of")?;
+                let num = params[0].expect_complex("expected number to find tangent of")?;
                 Ok(Number(num.tan()))
             }));
 
         self.add_builtin("log", BuiltinFunction::new(
             1,
             |params| {
-                let num = params[0].expect_number("expected number to find logarithm of")?;
-                Ok(Number(num.log10()))
+                let num = params[0].expect_complex("expected number to find logarithm of")?;
+                Ok(Number(num.log(10.0)))
             }));
 
         self.add_builtin("logn", BuiltinFunction::new(
             2,
             |params| {
-                let n = params[0].expect_number("expected base to logarithm")?;
-                let x = params[1].expect_number("expected number to find logarithm of")?;
+                let n = params[0].expect_real("expected real base to logarithm")?;
+                let x = params[1].expect_complex("expected number to find logarithm of")?;
                 Ok(Number(x.log(n)))
             }));
 
         self.add_builtin("ln", BuiltinFunction::new(
             1,
             |params| {
-                let num = params[0].expect_number("expected number to find natural logarithm of")?;
+                let num = params[0].expect_complex("expected number to find natural logarithm of")?;
                 Ok(Number(num.ln()))
             }));
 
@@ -345,7 +410,12 @@ impl<'a> RuntimeState<'a> {
 
     fn evaluate(&mut self, node: &'a ParserNode<'a>) -> Result<Value, String> {
         match node {
-            ParserNode::Number(num) => Ok(Number(*num)),
+            ParserNode::Number(num, imaginary) => if *imaginary {
+                Ok(Value::imaginary(*num))
+            }
+            else {
+                Ok(Value::real(*num))
+            },
             ParserNode::Identifier(identifier) => {
                 if self.has_local(identifier) {
                     Ok(self.locals[identifier].clone())
@@ -444,7 +514,7 @@ impl<'a> RuntimeState<'a> {
                 }
             },
             ParserNode::Conditional(predicate, true_expr, false_expr) => {
-                let predicate = self.evaluate(&*predicate)?.expect_number("a predicate to a conditional expression must be a number")?;
+                let predicate = self.evaluate(&*predicate)?.expect_real("a predicate to a conditional expression must be a number")?;
 
                 if predicate != 0.0 {
                     return Ok(self.evaluate(&*true_expr)?);
@@ -460,7 +530,7 @@ impl<'a> RuntimeState<'a> {
     
                 self.add_function(name, node);
     
-                Ok(Number(0.0))
+                Ok(Value::real(0.0))
             },
             ParserNode::VariableDeclaration(name, expression) => {
                 if self.has_local(name) {
@@ -470,55 +540,63 @@ impl<'a> RuntimeState<'a> {
                 let value = self.evaluate(&*expression)?;
                 self.add_local(name, value);
     
-                Ok(Number(0.0))
+                Ok(Value::real(0.0))
             },
             ParserNode::Loop(parameter, range, body) => {
                 if let ParserNode::Range(first, second, step) = &**range /* :S */ {
-                    let first_bound = self.evaluate(&*first)?.expect_number("the first bound must be a number")?;
-                    let second_bound = self.evaluate(&*second)?.expect_number("the second bound must be a number")?;
-                    let step = self.evaluate(&*step)?.expect_number("the step must be a number")?;
+                    let first_bound = self.evaluate(&*first)?.expect_real("the first bound must be a real number")?;
+                    let second_bound = self.evaluate(&*second)?.expect_real("the second bound must be a real number")?;
+                    let step = self.evaluate(&*step)?.expect_real("the step must be a number")?;
 
-                    if step <= 0.0 {
-                        return Err("a step cannot be less than or equal to 0".to_string());
+                    if step == 0.0 {
+                        return Err("a step cannot be 0".to_string());
                     }
-    
+
+                    let preserved_local = if self.has_local(parameter) {
+                        Some(self.locals[parameter].clone())
+                    }
+                    else {
+                        None
+                    };
+
                     let mut x = first_bound;
-                    let mut last_evaluated = Number(0.0);
+                    let mut sum = Value::real(0.0);
 
                     if first_bound < second_bound {
                         while x < second_bound {
-                            self.add_local(parameter, Number(x));
-                            last_evaluated = (last_evaluated+ self.evaluate(&*body)?)?;
-                            
-                            if x + step >= second_bound {
-                                x = second_bound;
-                                self.add_local(parameter, Number(x));
-                                last_evaluated = (last_evaluated+ self.evaluate(&*body)?)?;
+                            self.add_local(parameter, Value::real(x));
+                            sum = (sum + self.evaluate(&*body)?)?;
+                            x = if x + step < second_bound {
+                                x + step
                             }
                             else {
-                                x += step;
-                            }
+                                self.add_local(parameter, Value::real(second_bound));
+                                sum = (sum + self.evaluate(&*body)?)?;
+                                break;
+                            };
                         }
                     }
-                    else if first_bound > second_bound {
+                    else {
                         while x > second_bound {
-                            self.add_local(parameter, Number(x));
-                            last_evaluated = (last_evaluated+ self.evaluate(&*body)?)?;
-                            
-                            if x - step <= second_bound {
-                                x = second_bound;
-                                self.add_local(parameter, Number(x));
-                                last_evaluated = (last_evaluated+ self.evaluate(&*body)?)?;
+                            self.add_local(parameter, Value::real(x));
+                            sum = (sum + self.evaluate(&*body)?)?;
+
+                            x = if x - step > second_bound {
+                                x - step
                             }
                             else {
-                                x -= step;
-                            }
+                                self.add_local(parameter, Value::real(second_bound));
+                                sum = (sum + self.evaluate(&*body)?)?;
+                                break;
+                            };
                         }
                     }
 
-                    self.remove_local(parameter);
-    
-                    return Ok(last_evaluated);
+                    if let Some(val) = preserved_local {
+                        self.add_local(parameter, val);
+                    }
+
+                    Ok(sum)
                 }
                 else {
                     unreachable!()
@@ -539,13 +617,13 @@ impl<'a> RuntimeState<'a> {
             },
             ParserNode::Tree(nodes) => {
                 if nodes.is_empty() {
-                    return Ok(Number(0.0));
+                    return Ok(Value::real(0.0));
                 }
 
                 match nodes.last().unwrap() {
                     ParserNode::VariableDeclaration(_, _) | ParserNode ::FunctionDeclaration(_, _, _) => Err("a tree must end with an expression".to_owned()),
                     _ => {
-                        let mut last_evaluated = Value::Number(0.0);
+                        let mut last_evaluated = Value::real(0.0);
                         let mut new_locals = Vec::new();
     
                         for node in nodes.into_iter() {

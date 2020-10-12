@@ -10,3 +10,5 @@ let rotvec(v, r) = {
 let dot(x, y) = x(x) * x(y) + y(x) * y(y)
 
 let fact(x) = x < 1 => 1 | x * fact(x - 1)
+
+let ncr(n, r) = fact(n) / (fact(n - r) * fact(r))

@@ -27,7 +27,7 @@ type InnerNode<'a> = Box<ParserNode<'a>>;
 // this enum acts as a mapping between that grammar and rust code
 #[derive(Debug)]
 pub enum ParserNode<'a> {
-    Number(f64), // any floating point number             
+    Number(f64, bool), // any number, either real or imaginary    
     Identifier(&'a str), // any identifier, such as a variable name, function name, etc
     Operation(InnerNode<'a>, Operator, InnerNode<'a>), // an arithmetic operation with a left and right hand side
     Assignment(Vec<&'a str>, InnerNode<'a>),
@@ -38,6 +38,19 @@ pub enum ParserNode<'a> {
     Range(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // any range with a lower bound, upper bound and a step 
     Loop(&'a str, InnerNode<'a>, InnerNode<'a>), // a loop construct that works on ranges and a named parameter
     Tree(Vec<ParserNode<'a>>) // a tree of nodes
+}
+
+impl<'a> ParserNode<'a> {
+    pub fn append_tree(&mut self, new_nodes: ParserNode<'a>) {
+        if let ParserNode::Tree(nodes) = self {
+            if let ParserNode::Tree(mut new_nodes) = new_nodes {
+                nodes.append(&mut new_nodes);
+            }
+        }
+        else {
+            panic!("tried to append nodes to a non-tree nodes");
+        }
+    }
 }
 
 pub fn parse_leibniz_file(file: &str) -> Result<ParserNode, String> {
@@ -87,7 +100,21 @@ fn parse_value(value: Pair<Rule>) -> ParserNode {
 }
 
 fn parse_number(number: Pair<Rule>) -> ParserNode {
-    ParserNode::Number(number.as_str().parse().unwrap())
+    let num = number.as_str();
+
+    if num == "i" {
+        return ParserNode::Number(1.0, true);
+    }
+
+    let imaginary = num.ends_with("i");
+    let num_str = if imaginary {
+        &num[0..num.len() - 1]
+    }
+    else {
+        num
+    };
+
+    ParserNode::Number(num_str.parse().unwrap(), imaginary)
 }
 
 fn parse_identifier(identifier: Pair<Rule>) -> ParserNode {
@@ -131,14 +158,14 @@ fn parse_expression(expression: Pair<Rule>) -> ParserNode {
     if conditional_offset > 0 {
         return parse_conditional(pairs[pairs.len() - 1].clone(), operation);
     }
-    
+
     operation
 }
 
 fn parse_negation_expression(expression: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(expression);
 
-    ParserNode::Operation(Box::new(parse_expression(pairs[0].clone())), Operator::Multiply, Box::new(ParserNode::Number(-1.0)))
+    ParserNode::Operation(Box::new(parse_expression(pairs[0].clone())), Operator::Multiply, Box::new(ParserNode::Number(-1.0, false)))
 }
 
 fn parse_assignment(assignment: Pair<Rule>) -> ParserNode {

@@ -1,13 +1,13 @@
 # Leibniz
 Leibniz is an interpreted but experimental programming language revolving around mathematics.
-Writing leibniz should feel natural, and the language itself is very simple. Currently, the parser and runtime are only ~1k LOC.
+Writing Leibniz should feel natural, and the language itself is very simple. Currently, the parser and runtime are only ~1k LOC.
 
 # Quick tutorial
 Leibniz currently has two data types, until the rest are implemented:
-- `RealNumber`: The most basic data type. It's a double precision floating point number, ie just a decimal.
+- `Number`: The most basic data type. It's a double precision complex number with a real and imaginary component.
 - `Vector`: As the name implies, it's a vector, which is a pair of two `RealNumber`s.
 
-Almost everything in leibniz is an expression (the exception being declarations of functions and variables).
+Almost everything in Leibniz is an expression (the exception being declarations of functions and variables).
 
 An expression can come in many different ways. For example
 ```rust
@@ -39,14 +39,24 @@ let x = f(9) // 18
 let g(x, y, z) = x^y^z + f(x)
 ```
 
+Imaginary numbers are built into the language syntax as the symbol `i`.
+```rust
+5+90i / 2i^i // 1383.1689451587715+1665.182851006511i
+sin(pi * i) // 11.548739357257746i
+let imaginaryi = -1^0.5 // i
+```
+
 Conditionals are supported, too. This brings us to the next point: Leibniz has no concept of true / false booleans like other languages. Much like C, it considers any non-zero number to be truthy, while zero is considered false-y. This means that the conditional operators Leibniz has will return `1` or `0` when used.
 ```rust
 let x = 5 < 9 // 1
 let y = x > x + 2 // 0
 ```
 
-This can be used with Leibniz's conditional operator, `=>`, which expects a predicate (any `RealNumber`), a true arm if the predicate is not zero, and a false arm if the predicate is zero.
-
+This can be used with Leibniz's conditional operator, `=>`, which expects a predicate (any `Number` with only a real component), a true arm if the predicate is not zero, and a false arm if the predicate is zero. The syntax is like so:
+```rust
+predicate_expression => true_expression | false_expression
+```
+And it can be used, for example, like this:
 ```rust
 let x = 5
 let y = x > 2 => 20 | x + 5 // 20
@@ -107,7 +117,10 @@ Leibniz has another construct, called ranges, which can act as a looping constru
 x: [0..10, 1] => x * 3
 ```
 
-This is similar to for-loops in other languages. Leibniz will step through from `0` to `10`, both bounds inclusive, with a step of `1`, and assign it to the temporary variable `x`. The body will then evaluate for each `x`, and you can do whatever you want with it. The bounds and step can also be decimals instead of integers.
+This is similar to for-loops in other languages. Leibniz will step through from `0` to `10`, both bounds inclusive, with a step of `1`, and assign it to the temporary variable `x`. The body will then evaluate for each `x`, and you can do whatever you want with it. The bounds and step can also be decimals instead of integers. Range syntax is like so:
+```rust
+variablename: [firstbound..secondbound, step] => expression
+```
 
 Another powerful feature of ranges is that they are also an expression, which implicitly evaluates to their *sum*. Thus, the following snippet of code:
 ```rust
@@ -115,7 +128,16 @@ x: [0..10, 1] => x * 3
 ```
 actually evaluates to `165`. (`0 + 3 + 6 + 9 + 12 + 15 + 18 + 21 + 24 + 27 + 30`)
 
-This makes ranges almost the equivalent of the sigma notation in math, the primary difference being you can also loop from an upper bound to a lower bound, and ranges don't strictly have to be integers.
+This makes ranges almost the equivalent of the sigma notation in math, the primary difference being you can also loop from an upper bound to a lower bound, and ranges don't strictly have to be integers:
+```rust
+z: [20..0, 0.5] => z^2 // 5535 
+```
+
+Note: ranges will not go outside their bounds, even if the step allows it. For example:
+```rust
+p: [0..10, 3] => p
+```
+evaluates to `28`. This is because rather than overstepping the over `10` bound (and in turn evaluating `0 + 3 + 6 + 9 + 12`) it will short circuit the last step into the upper bound, so `0 + 3 + 6 + 9 + 10` is evaluated instead. This implementation detail is subject to change in the future.
 
 Let's move on to Leibniz's second data type, `Vector`.
 

@@ -12,19 +12,30 @@ fn main() {
         error("leibniz: no input file found");
     }
 
+    let mut parsed_total = match parser::parse_leibniz_file(PRELUDE) {
+        Ok(ast) => ast,
+        Err(err) => {
+            error(&err);
+            unreachable!()
+        }
+    };
+
     let filename = &args[1];
     let file = fs::read_to_string(filename).expect("something went wrong reading the file");
 
-    let mut full_script = PRELUDE.to_owned();
-    full_script.push_str("\n");
-    full_script.push_str(&file);
+    let parsed_file = match parser::parse_leibniz_file(&file) {
+        Ok(ast) => ast,
+        Err(err) => {
+            error(&err);
+            unreachable!()
+        }
+    };
 
-    match parser::parse_leibniz_file(&full_script) {
-        Ok(ast) => match runtime::execute(ast) {
-            Ok(num) => println!("{}", num),
-            Err(error) => println!("runtime error: {}", error)
-        },
-        Err(error) => println!("parsing error: {}", error)
+    parsed_total.append_tree(parsed_file);
+
+    match runtime::execute(parsed_total) {
+        Ok(value) => println!("{}", value),
+        Err(err) => println!("{}", err)
     }
 }
 

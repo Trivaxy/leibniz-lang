@@ -1,8 +1,8 @@
 WHITESPACE = _{ " " | NEWLINE }
 
-number = ${ "-"* ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT+)* }
+number = ${ ("-"* ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT+)* ~ "i"?) | "i" }
 
-identifier = ${ !letk ~ ASCII_ALPHA+ }
+identifier = ${ !letk ~ !"i" ~ ASCII_ALPHA+ }
 
 add = { "+" }
 sub = { "-" }

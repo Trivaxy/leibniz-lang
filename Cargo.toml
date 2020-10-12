@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 pest = "2"
 pest_derive = "2"
+num-complex = "0.3"
