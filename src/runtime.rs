@@ -243,17 +243,20 @@ impl fmt::Display for Value {
                 write!(f, "{}", c.re)
             }
             else if c.re == 0.0 {
-                write!(f, "{}i", c.im)
-            }
-            else {
-                let i_sign = if c.im >= 0.0 {
-                    "+"
+                if c.im == 1.0 {
+                    write!(f, "i")
                 }
                 else {
-                    ""
-                };
-
-                write!(f, "{}{}{}i", c.re, i_sign, c.im)
+                    write!(f, "{}i", c.im)
+                }
+            }
+            else {
+                if c.im > 0.0 {
+                    write!(f, "{} + {}i", c.re, c.im)
+                }
+                else {
+                    write!(f, "{} - {}i", c.re, c.im * -1.0)
+                }
             },
             Vector(x, y) => write!(f, "({}, {})", x, y)
         }
@@ -374,6 +377,14 @@ impl<'a> RuntimeState<'a> {
                 println!("{}", params[0]);
                 Ok(params[0].clone())
             }));
+
+        self.add_builtin("conjugate", BuiltinFunction::new(
+            1,
+            |params| {
+                let num = params[0].expect_complex("expected a complex number to find conjugate of")?;
+                Ok(Number(Complex64::new(num.re, -num.im)))
+            }
+        ))
     }
 
     fn add_global(&mut self, name: &'a str, value: Value) {
