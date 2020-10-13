@@ -1,4 +1,14 @@
-use std::fs;
+use std::{fs, time};
+
+use glium::{
+    glutin::{self, event::WindowEvent},
+    Display, Surface,
+};
+use glutin::{
+    event::Event, event_loop::ControlFlow, event_loop::EventLoop, window::WindowBuilder,
+    ContextBuilder,
+};
+use time::{Duration, Instant};
 
 mod parser;
 mod runtime;
@@ -33,9 +43,35 @@ fn main() {
 
     parsed_total.append_tree(parsed_file);
 
+    let event_loop = EventLoop::new();
+    let window_builder = WindowBuilder::new();
+    let context_builder = ContextBuilder::new();
+    let display = Display::new(window_builder, context_builder, &event_loop).unwrap();
+
+    event_loop.run(move |ev, _, control_flow| {
+        let mut target = display.draw();
+        target.clear_color(0.0, 0.0, 1.0, 1.0);
+        target.finish().unwrap();
+
+        let next_frame_time = Instant::now() + Duration::from_nanos(16_666_667);
+
+        *control_flow = ControlFlow::WaitUntil(next_frame_time);
+
+        match ev {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => {
+                    *control_flow = ControlFlow::Exit;
+                    return;
+                }
+                _ => return,
+            },
+            _ => (),
+        }
+    });
+
     match runtime::execute(parsed_total) {
         Ok(value) => println!("{}", value),
-        Err(err) => println!("{}", err)
+        Err(err) => println!("{}", err),
     }
 }
 

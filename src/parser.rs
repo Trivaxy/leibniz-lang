@@ -1,5 +1,11 @@
 use error::LineColLocation;
-use pest::{Parser, error::Error, error::ErrorVariant, error::{self}, iterators::Pair};
+use pest::{
+    error::Error,
+    error::ErrorVariant,
+    error::{self},
+    iterators::Pair,
+    Parser,
+};
 use pest_derive::Parser;
 
 #[derive(Parser)]
@@ -17,17 +23,17 @@ pub enum Operator {
     GreaterThan,
     LessThan,
     GreaterThanOrEquals,
-    LessThanOrEquals
+    LessThanOrEquals,
 }
 
 type InnerNode<'a> = Box<ParserNode<'a>>;
 
-// represents a node in the AST which the parser can construct. 
+// represents a node in the AST which the parser can construct.
 // leibniz's grammar is defined in leibniz.pest, from which the parser is generated from.
 // this enum acts as a mapping between that grammar and rust code
 #[derive(Debug)]
 pub enum ParserNode<'a> {
-    Number(f64, bool), // any number, either real or imaginary    
+    Number(f64, bool),   // any number, either real or imaginary
     Identifier(&'a str), // any identifier, such as a variable name, function name, etc
     Operation(InnerNode<'a>, Operator, InnerNode<'a>), // an arithmetic operation with a left and right hand side
     Assignment(Vec<&'a str>, InnerNode<'a>),
@@ -35,9 +41,9 @@ pub enum ParserNode<'a> {
     Conditional(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // a conditional with a predicate, true expression and false expression
     FunctionDeclaration(&'a str, Vec<&'a str>, InnerNode<'a>),
     VariableDeclaration(&'a str, InnerNode<'a>),
-    Range(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // any range with a lower bound, upper bound and a step 
+    Range(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // any range with a lower bound, upper bound and a step
     Loop(&'a str, InnerNode<'a>, InnerNode<'a>), // a loop construct that works on ranges and a named parameter
-    Tree(Vec<ParserNode<'a>>) // a tree of nodes
+    Tree(Vec<ParserNode<'a>>),                   // a tree of nodes
 }
 
 impl<'a> ParserNode<'a> {
@@ -46,8 +52,7 @@ impl<'a> ParserNode<'a> {
             if let ParserNode::Tree(mut new_nodes) = new_nodes {
                 nodes.append(&mut new_nodes);
             }
-        }
-        else {
+        } else {
             panic!("tried to append nodes to a non-tree nodes");
         }
     }
@@ -60,7 +65,7 @@ pub fn parse_leibniz_file(file: &str) -> Result<ParserNode, String> {
             return Err(get_error_message(file, pair));
         }
     };
-    
+
     let mut nodes = Vec::new();
 
     for pair in root.into_inner() {
@@ -71,7 +76,7 @@ pub fn parse_leibniz_file(file: &str) -> Result<ParserNode, String> {
             Rule::assignment => parse_assignment(pair),
             Rule::rloop => parse_loop(pair),
             Rule::EOI => break,
-            _ => unreachable!()
+            _ => unreachable!(),
         });
     }
 
@@ -87,11 +92,14 @@ fn parse_value(value: Pair<Rule>) -> ParserNode {
         Rule::expression => parse_expression(pairs[0].clone()), // parenthesis
         Rule::func_call => parse_func_call(pairs[0].clone()),
         Rule::rloop => parse_loop(pairs[0].clone()),
-        _ => { println!("{:#?}", pairs); unreachable!() }
+        _ => {
+            println!("{:#?}", pairs);
+            unreachable!()
+        }
     };
 
     if pairs.len() == 1 {
-        return left_val;  // there is no power operator on the right side, so return left side only
+        return left_val; // there is no power operator on the right side, so return left side only
     }
 
     let right_val = parse_value(pairs[2].clone());
@@ -109,8 +117,7 @@ fn parse_number(number: Pair<Rule>) -> ParserNode {
     let imaginary = num.ends_with("i");
     let num_str = if imaginary {
         &num[0..num.len() - 1]
-    }
-    else {
+    } else {
         num
     };
 
@@ -147,7 +154,11 @@ fn parse_expression(expression: Pair<Rule>) -> ParserNode {
     }
 
     let mut operation = parse_term(pairs[0].clone());
-    let conditional_offset = if pairs.last().unwrap().as_rule() == Rule::conditional { 1 } else { 0 };
+    let conditional_offset = if pairs.last().unwrap().as_rule() == Rule::conditional {
+        1
+    } else {
+        0
+    };
 
     for i in (0..pairs.len() - 1 - conditional_offset).step_by(2) {
         let operator = parse_operator(pairs[i + 1].clone());
@@ -165,13 +176,18 @@ fn parse_expression(expression: Pair<Rule>) -> ParserNode {
 fn parse_negation_expression(expression: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(expression);
 
-    ParserNode::Operation(Box::new(parse_expression(pairs[0].clone())), Operator::Multiply, Box::new(ParserNode::Number(-1.0, false)))
+    ParserNode::Operation(
+        Box::new(parse_expression(pairs[0].clone())),
+        Operator::Multiply,
+        Box::new(ParserNode::Number(-1.0, false)),
+    )
 }
 
 fn parse_assignment(assignment: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(assignment);
 
-    let identifiers = pairs.iter()
+    let identifiers = pairs
+        .iter()
         .filter(|pair| pair.as_rule() == Rule::identifier)
         .map(|pair| pair.as_str())
         .collect();
@@ -184,11 +200,15 @@ fn parse_assignment(assignment: Pair<Rule>) -> ParserNode {
 fn parse_var_decl(declaration: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(declaration);
 
-    ParserNode::VariableDeclaration(pairs[0].as_str(), Box::new(parse_tree_or_expression(pairs[2].clone())))
+    ParserNode::VariableDeclaration(
+        pairs[0].as_str(),
+        Box::new(parse_tree_or_expression(pairs[2].clone())),
+    )
 }
 
 fn parse_param_list(param_list: Pair<Rule>) -> Vec<&str> {
-    param_list.into_inner()
+    param_list
+        .into_inner()
         .filter(|pair| pair.as_rule() == Rule::identifier)
         .map(|pair| pair.as_str())
         .collect::<Vec<&str>>()
@@ -196,14 +216,20 @@ fn parse_param_list(param_list: Pair<Rule>) -> Vec<&str> {
 
 fn parse_func_decl(declaration: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(declaration);
-    
-    ParserNode::FunctionDeclaration(pairs[0].as_str(), parse_param_list(pairs[1].clone()), Box::new(parse_tree_or_expression(pairs[3].clone())))
+
+    ParserNode::FunctionDeclaration(
+        pairs[0].as_str(),
+        parse_param_list(pairs[1].clone()),
+        Box::new(parse_tree_or_expression(pairs[3].clone())),
+    )
 }
 
 fn parse_func_call(func_call: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(func_call);
     let func_name = pairs[0].as_str();
-    let arguments = pairs[1].clone().into_inner()
+    let arguments = pairs[1]
+        .clone()
+        .into_inner()
         .filter(|pair| pair.as_rule() == Rule::expression)
         .map(|pair| parse_expression(pair))
         .collect();
@@ -220,7 +246,10 @@ fn parse_tree_or_expression(tree: Pair<Rule>) -> ParserNode {
 
     let pairs = pairs_to_vec(tree);
 
-    for pair in pairs.into_iter().filter(|pair| pair.as_str() != "{" && pair.as_str() != "}") {
+    for pair in pairs
+        .into_iter()
+        .filter(|pair| pair.as_str() != "{" && pair.as_str() != "}")
+    {
         nodes.push(parse_action(pair));
     }
 
@@ -232,7 +261,11 @@ fn parse_conditional<'a>(conditional: Pair<'a, Rule>, predicate: ParserNode<'a>)
     let true_branch = parse_tree_or_expression(pairs[0].clone());
     let false_branch = parse_tree_or_expression(pairs[2].clone());
 
-    ParserNode::Conditional(Box::new(predicate), Box::new(true_branch), Box::new(false_branch))
+    ParserNode::Conditional(
+        Box::new(predicate),
+        Box::new(true_branch),
+        Box::new(false_branch),
+    )
 }
 
 fn parse_loop(rloop: Pair<Rule>) -> ParserNode {
@@ -259,7 +292,7 @@ fn parse_action(action: Pair<Rule>) -> ParserNode {
         Rule::rloop => parse_loop(action),
         Rule::assignment => parse_assignment(action),
         Rule::tree | Rule::expression => parse_tree_or_expression(action),
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }
 
@@ -275,7 +308,7 @@ fn parse_operator(operator: Pair<Rule>) -> Operator {
         Rule::lst => Operator::LessThan,
         Rule::gre => Operator::GreaterThanOrEquals,
         Rule::lse => Operator::LessThanOrEquals,
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }
 
@@ -286,23 +319,23 @@ fn pairs_to_vec(pair: Pair<Rule>) -> Vec<Pair<Rule>> {
 fn get_error_message(input: &str, error: Error<Rule>) -> String {
     let error_pos = match error.line_col {
         LineColLocation::Pos(pos) => pos,
-        LineColLocation::Span(line, col) => (line.0, col.0) // this never gets reached, anyways
+        LineColLocation::Span(line, col) => (line.0, col.0), // this never gets reached, anyways
     };
 
-    let error_msg = if let ErrorVariant::ParsingError { positives, negatives: _ } = error.variant {
+    let error_msg = if let ErrorVariant::ParsingError {
+        positives,
+        negatives: _,
+    } = error.variant
+    {
         if positives.iter().any(|rule| rule == &Rule::tree) {
             "expected a } here"
-        }
-        else if positives.iter().any(|rule| rule == &Rule::comma) {
+        } else if positives.iter().any(|rule| rule == &Rule::comma) {
             "expected a , here"
-        }
-        else if positives.iter().any(|rule| rule == &Rule::rsquarb) {
+        } else if positives.iter().any(|rule| rule == &Rule::rsquarb) {
             "expected a ] here"
-        }
-        else if positives.iter().any(|rule| rule == &Rule::bar) {
+        } else if positives.iter().any(|rule| rule == &Rule::bar) {
             "expected a | here"
-        }
-        else {
+        } else {
             match positives[0] {
                 Rule::value => "expected proper value",
                 Rule::identifier => "expected a variable name here",
@@ -312,15 +345,17 @@ fn get_error_message(input: &str, error: Error<Rule>) -> String {
                 Rule::lcurlb => "expected tree or expression",
                 Rule::range => "expected a range here",
                 Rule::EOI => "expected a matching { for the } here",
-                _ => "unexpected character"
+                _ => "unexpected character",
             }
         }
-    }
-    else {
+    } else {
         unreachable!()
     };
 
     let highlight = " ".repeat(error_pos.1 - 1) + "^";
     let line = input.split("\n").collect::<Vec<&str>>()[error_pos.0 - 1];
-    format!("({}, {}): {}\n--> {}\n    {}", error_pos.0, error_pos.1, error_msg, line, highlight)
+    format!(
+        "({}, {}): {}\n--> {}\n    {}",
+        error_pos.0, error_pos.1, error_msg, line, highlight
+    )
 }
