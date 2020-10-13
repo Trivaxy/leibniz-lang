@@ -4,8 +4,8 @@ Writing Leibniz should feel natural, and the language itself is very simple. Cur
 
 # Quick tutorial
 Leibniz currently has two data types, until the rest are implemented:
-- `Number`: The most basic data type. It's a double precision complex number with a real and imaginary component.
-- `Vector`: As the name implies, it's a vector, which is a pair of two `RealNumber`s.
+- `Number`: The most basic data type. It's a complex number with double-precision real and imaginary components. Leibniz makes the distinction between real and complex numbers depending on whether or not there is an imaginary component.
+- `Vector`: As the name implies, it's a vector, which is a pair of two `Number`s that must be real.
 
 Almost everything in Leibniz is an expression (the exception being declarations of functions and variables).
 
