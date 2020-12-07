@@ -3,7 +3,7 @@ Leibniz is an interpreted but experimental programming language revolving around
 Writing Leibniz should feel natural, and the language itself is very simple. Currently, the parser and runtime are only ~1k LOC.
 
 # Quick tutorial
-Leibniz currently has two data types, until the rest are implemented:
+Leibniz currently has three data types, until the rest are implemented:
 - `Number`: The most basic data type. It's a complex number with double-precision real and imaginary components. Leibniz makes the distinction between real and complex numbers depending on whether or not there is an imaginary component.
 - `Vector`: As the name implies, it's a vector, which is a pair of two `Number`s that must be real.
 - `Array`: A collection of different values. Arrays are not limited to storing only one data type.
@@ -113,7 +113,7 @@ let x = {
 ```
 is valid, because `y` alone is a valid expression.
 
-Leibniz has another construct, called ranges, which can act as a looping construct.
+Leibniz has another construct, called ranges, which can act as a looping mechanism.
 ```rust
 x: [0..10, 1] => x * 3
 ```
@@ -181,7 +181,7 @@ let x = [0, 20, 5.2]
 x = x + 5 // [0, 20, 5.2, 5]
 ```
 
-There are a handful of functions in the standard library that make using arrays easily.
+There are a handful of functions in the standard library that make using arrays easy.
 
 The `len(x)` function, where `x` is an array, will return the number of elements in `x`.
 ```rust
