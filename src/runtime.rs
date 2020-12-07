@@ -353,6 +353,23 @@ impl Value {
         }
     }
 
+    fn mem_size(&self) -> usize {
+        let value_size = std::mem::size_of::<Value>();
+
+        match self {
+            Array(arr) => {
+                let mut size = value_size;
+
+                for value in arr {
+                    size += value.mem_size();
+                }
+
+                size
+            },
+            _ => value_size
+        }
+    }
+
     fn real(r: f64) -> Self {
         Number(Complex64::new(r, 0.0))
     }
@@ -416,6 +433,7 @@ struct RuntimeState<'a> {
     locals: HashMap<&'a str, Value>,
     functions: HashMap<&'a str, &'a ParserNode<'a>>,
     builtin_functions: HashMap<&'a str, BuiltinFunction>,
+    in_function: bool
 }
 
 struct BuiltinFunction {
@@ -439,6 +457,7 @@ impl<'a> RuntimeState<'a> {
             locals: HashMap::new(),
             functions: HashMap::new(),
             builtin_functions: HashMap::new(),
+            in_function: false
         }
     }
 
@@ -576,7 +595,14 @@ impl<'a> RuntimeState<'a> {
                     Ok(Value::Array(array))
                 }
             })
-        )
+        );
+
+        self.add_builtin(
+            "mem",
+            BuiltinFunction::new(1, |params| {
+                Ok(Value::real(params[0].mem_size() as f64))
+            })
+        );
     }
 
     fn add_global(&mut self, name: &'a str, value: Value) {
@@ -652,6 +678,8 @@ impl<'a> RuntimeState<'a> {
                     return Err(format!("unknown function: {}", name));
                 }
 
+                self.in_function = true;
+
                 if self.builtin_functions.contains_key(name) {
                     if arguments.len() != self.builtin_functions[name].parameter_count {
                         return Err(format!(
@@ -725,6 +753,8 @@ impl<'a> RuntimeState<'a> {
                         }
                     }
 
+                    self.in_function = false;
+
                     return Ok(result);
                 } else {
                     unreachable!()
@@ -754,12 +784,17 @@ impl<'a> RuntimeState<'a> {
                 Ok(Value::real(0.0))
             }
             ParserNode::VariableDeclaration(name, expression) => {
-                if self.has_local(name) {
+                if self.has_global(name) || self.has_local(name) {
                     return Err(format!("you cannot redeclare a variable: {}", name));
                 }
 
                 let value = self.evaluate(&*expression)?;
-                self.add_local(name, value);
+
+                if self.in_function {
+                    self.add_local(name, value);
+                } else {
+                    self.add_global(name, value);
+                }
 
                 Ok(Value::real(0.0))
             }
@@ -832,6 +867,10 @@ impl<'a> RuntimeState<'a> {
                 for identifier in identifiers.iter() {
                     if !self.has_local(identifier) && !self.has_global(identifier) {
                         return Err(format!("use of undefined variable: {}", identifier));
+                    }
+
+                    if self.in_function && self.has_global(identifier) && !self.has_local(identifier ) {
+                        return Err(format!("attempted to affect external variable {} from within a function", identifier));
                     }
 
                     self.add_local(identifier, expression.clone());
