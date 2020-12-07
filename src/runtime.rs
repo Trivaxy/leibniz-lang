@@ -310,9 +310,9 @@ impl Value {
         }
     }
 
-    fn expect_array<'a>(&mut self, message: &'a str) -> Result<&mut Vec<Value>, &'a str> {
+    fn expect_array<'a>(&self, message: &'a str) -> Result<&Vec<Value>, &'a str> {
         match self {
-            Array(ref mut arr) => Ok(arr),
+            Array(arr) => Ok(arr),
             _ => Err(message)
         }
     }
@@ -499,6 +499,15 @@ impl<'a> RuntimeState<'a> {
                 let num =
                     params[0].expect_complex("expected a complex number to find conjugate of")?;
                 Ok(Number(Complex64::new(num.re, -num.im)))
+            }),
+        );
+
+        self.add_builtin(
+            "len",
+            BuiltinFunction::new(1, |params| {
+                let array =
+                    params[0].expect_array("expected an array to find length of")?;
+                Ok(Value::real(array.len() as f64))
             }),
         )
     }
