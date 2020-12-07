@@ -12,6 +12,24 @@ pub enum Value {
 
 type ValueOutput = Result<Value, String>;
 
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Number(n) => match other {
+                Number(n2) => n.re == n2.re && n.im == n2.im,
+                _ => false,
+            },
+            Vector(x, y) => match other {
+                Vector(x2, y2) => x == x2 && y == y2,
+                _ => false,
+            }
+            Array(_) => false
+        }
+    }
+}
+
+impl Eq for Value { }
+
 impl ops::Add<Value> for Value {
     type Output = ValueOutput;
 
@@ -187,6 +205,17 @@ impl Value {
         }
     }
 
+    // why are other inequalities a Result, but equals is not?
+    // answer: other inequalities are literally undefined for different data types
+    // but equals will work for all. a vector being greater than an imaginary is undefined,
+    // but a vector being equal to an imaginary is very clearly false.
+    fn equals(self, rhs: Value) -> Value {
+        match self == rhs {
+            true => Value::real(1.0),
+            false => Value::real(0.0)
+        }
+    }
+
     fn greater_than(self, rhs: Value) -> ValueOutput {
         match self {
             Number(c) => match rhs {
@@ -317,6 +346,13 @@ impl Value {
         }
     }
 
+    fn expect_mut_array<'a>(&mut self, message: &'a str) -> Result<&mut Vec<Value>, &'a str> {
+        match self {
+            Array(arr) => Ok(arr),
+            _ => Err(message)
+        }
+    }
+
     fn real(r: f64) -> Self {
         Number(Complex64::new(r, 0.0))
     }
@@ -414,7 +450,7 @@ impl<'a> RuntimeState<'a> {
             "vec",
             BuiltinFunction::new(2, |params| {
                 let x = params[0].expect_real("the x component of the vector is not a number")?;
-                let y = params[1].expect_real("the x component of the vector is not a number")?;
+                let y = params[1].expect_real("the y component of the vector is not a number")?;
                 Ok(Vector(x, y))
             }),
         );
@@ -509,6 +545,37 @@ impl<'a> RuntimeState<'a> {
                     params[0].expect_array("expected an array to find length of")?;
                 Ok(Value::real(array.len() as f64))
             }),
+        );
+
+        self.add_builtin(
+            "rm",
+            BuiltinFunction::new(2, |params| {
+                let mut array = params[0].expect_array("expected an array to remove value from")?.clone();
+                let index = params[1].expect_real("expected a real number to index array with in rm(x, y)")?;
+
+                if index.fract() != 0.0 || index < 0.0 || index >= array.len() as f64 {
+                    Err(format!("cannot index array in rm(x, y) where y is {}", index))
+                } else {
+                    array.remove(index as usize);
+                    Ok(Value::Array(array))
+                }
+            })
+        );
+
+        self.add_builtin(
+            "ins",
+            BuiltinFunction::new(3, |params| {
+                let mut array = params[0].expect_array("expected an array to remove value from")?.clone();
+                let index = params[1].expect_real("expected a real number to index array with in ins(x, y, z)")?;
+                let value = params[2].clone();
+
+                if index.fract() != 0.0 || index < 0.0 || index >= array.len() as f64 {
+                    Err(format!("cannot index array in ins(x, y, z) where y is {}", index))
+                } else {
+                    array.insert(index as usize, value);
+                    Ok(Value::Array(array))
+                }
+            })
         )
     }
 
@@ -573,6 +640,7 @@ impl<'a> RuntimeState<'a> {
                     Operator::Divide => (left / right)?,
                     Operator::Power => left.pow(right)?,
                     Operator::Modulo => (left % right)?,
+                    Operator::Equals => left.equals(right),
                     Operator::GreaterThan => left.greater_than(right)?,
                     Operator::LessThan => left.less_than(right)?,
                     Operator::GreaterThanOrEquals => left.greater_than_or_equals(right)?,
@@ -605,12 +673,12 @@ impl<'a> RuntimeState<'a> {
                         }
                     }
 
-                    let evaluated_arguments: Vec<Value> = evaluated_arguments
+                    let mut evaluated_arguments: Vec<Value> = evaluated_arguments
                         .into_iter()
                         .map(|argument| argument.unwrap())
                         .collect();
 
-                    return (self.builtin_functions[name].body)(&evaluated_arguments);
+                    return (self.builtin_functions[name].body)(&mut evaluated_arguments);
                 }
 
                 let mut functions = self
@@ -813,7 +881,7 @@ impl<'a> RuntimeState<'a> {
                 Ok(Array(evaluated_expressions))
             },
             ParserNode::Index(array, index) => {
-                let mut array = self.evaluate(array)?;
+                let array = self.evaluate(array)?;
                 let array = array.expect_array("cannot index a non-array")?;
 
                 let index = self.evaluate(index)?.expect_real("tried to index using non-number")?;

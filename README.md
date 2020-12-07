@@ -6,6 +6,7 @@ Writing Leibniz should feel natural, and the language itself is very simple. Cur
 Leibniz currently has two data types, until the rest are implemented:
 - `Number`: The most basic data type. It's a complex number with double-precision real and imaginary components. Leibniz makes the distinction between real and complex numbers depending on whether or not there is an imaginary component.
 - `Vector`: As the name implies, it's a vector, which is a pair of two `Number`s that must be real.
+- `Array`: A collection of different values. Arrays are not limited to storing only one data type.
 
 Almost everything in Leibniz is an expression (the exception being declarations of functions and variables).
 
@@ -154,6 +155,71 @@ let myvec = vec(2, 5) // (2, 5)
 x(myvec) // 2
 y(myvec) // 5
 ```
+
+Leibniz's third data type is the `Array`. Their syntax is extremely similar to other languages.
+```rust
+[3, 9, 10, 5] // An array containing 4 real numbers
+```
+
+Arrays are not limited to just one data type:
+```rust
+[3, 10.52, 5i, (9 + 20i)^0.5, vec(20, 9.5)]
+[[0, 0.5, 0.744], [9, 20i, [0, 0], 4]] // An array containing arrays
+```
+
+You can access each element in an array by indexing it, which is identical to other languages.
+Array indices are zero-based, meaning that the first element has index 0.
+```rust
+let x = [5, 9i, 4]
+let y = x[0] // 5
+let z = y + x[1] // 5 + 9i
+```
+
+You can add an element to the end of an array by adding other values to it:
+```rust
+let x = [0, 20, 5.2]
+x = x + 5 // [0, 20, 5.2, 5]
+```
+
+There are a handful of functions in the standard library that make using arrays easily.
+
+The `len(x)` function, where `x` is an array, will return the number of elements in `x`.
+```rust
+let x = [50, [20, 4], 0, 5.1]
+len(x) // 4
+len(x[1]) // 2
+```
+
+You can remove elements from arrays using `rm(x, y)` where `x` is an array and `y` is an integer greater than or equal to 0.
+`rm(x, y)` does not modify the array in-place, it returns a copy of the array with the element at index `y` removed.
+```rust
+let x = [0, 20, 10]
+rm(x, 1) // [0, 10]
+x // [0, 20, 10]
+```
+
+If you need to add an element to an array at a particular position (where adding to the array won't suffice), you can use the `ins(x, y, z)` function, where `x` is an array, `y` is an integer and `z` is any value.
+`ins(x, y, z)` will push the value `z` into the array `x` at position `y`. Like `rm(x, y)`, this will create a copy of the array with the new value pushed.
+```rust
+let x = [2, 4, 12, 20]
+ins(x, 2, i) // [2, 4, i, 12, 20]
+```
+
+Looping through arrays is quite common. Leibniz ranges are well suited for doing so.
+```rust
+let x = [5, 10, 90, 20, 5.5, 2.3, 5.66767, -6, -45]
+
+z: [0..len(x) - 1, 1] => x[z] // 87.46767
+```
+Remember that ranges evaluate to the sum of everything their body evaluates to? Using `x[z]`, the range ends up summing everything in the array!
+
+What if we want to sum every even number in an array? Bring in a conditional:
+```rust
+let x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+z: [0..len(x) - 1, 1] => (x[z] % 2) == 0 => x[z] | 0  // 30
+```
+
 
 # Todo
 - Implement the rest of Leibniz types, such as matrices, imaginary numbers and so on
