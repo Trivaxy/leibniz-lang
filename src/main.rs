@@ -43,7 +43,7 @@ fn main() {
 
     parsed_total.append_tree(parsed_file);
 
-    let event_loop = EventLoop::new();
+    /*let event_loop = EventLoop::new();
     let window_builder = WindowBuilder::new();
     let context_builder = ContextBuilder::new();
     let display = Display::new(window_builder, context_builder, &event_loop).unwrap();
@@ -67,7 +67,7 @@ fn main() {
             },
             _ => (),
         }
-    });
+    });*/
 
     match runtime::execute(parsed_total) {
         Ok(value) => println!("{}", value),
