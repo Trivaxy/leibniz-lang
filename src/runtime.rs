@@ -7,6 +7,7 @@ use Value::*;
 pub enum Value {
     Number(Complex64),
     Vector(f64, f64),
+    Array(Vec<Value>)
 }
 
 type ValueOutput = Result<Value, String>;
@@ -19,11 +20,14 @@ impl ops::Add<Value> for Value {
             Number(c) => match rhs {
                 Number(c2) => Ok(Number(c + c2)),
                 Vector(_, _) => Err("cannot add a number to a vector".into()),
+                Array(_) => Ok(rhs.push(self))
             },
             Vector(x, y) => match rhs {
                 Number(_) => Err("cannot add a vector to a number".into()),
                 Vector(x2, y2) => Ok(Vector(x + x2, y + y2)),
+                Array(_) => Ok(rhs.push(self)),
             },
+            Array(_) => Ok(self.push(rhs))
         }
     }
 }
@@ -36,11 +40,18 @@ impl ops::Sub<Value> for Value {
             Number(c) => match rhs {
                 Number(c2) => Ok(Number(c - c2)),
                 Vector(_, _) => Err("cannot subtract a number from a vector".into()),
+                Array(_) => Err("cannot subtract an array from a number".into()),
             },
             Vector(x, y) => match rhs {
                 Number(_) => Err("cannot subtract a vector from a number".into()),
                 Vector(x2, y2) => Ok(Vector(x - x2, y - y2)),
+                Array(_) => Err("cannot subtract an array from a vector".into()),
             },
+            Array(_) => match rhs {
+                Number(_) => Err("cannot subtract a number from an array".into()),
+                Vector(_, _) => Err("cannot subtract a vector from an array".into()),
+                Array(_) => Err("cannot subtract an array from an array".into())
+            }
         }
     }
 }
@@ -51,15 +62,14 @@ impl ops::Mul<Value> for Value {
     fn mul(self, rhs: Value) -> Self::Output {
         match self {
             Number(c) => match rhs {
-                Number(c2) => {
-                    Ok(Number(c * c2))
-                },
+                Number(c2) => Ok(Number(c * c2)),
                 Vector(x, y) => if c.im != 0.0 {
                     Err("cannot multiply a vector with a complex number".into())
                 }
                 else {
                     Ok(Vector(x * c.re, y * c.re))
-                }
+                },
+                Array(_) => Err("cannot multiply a number by an array".into())
             },
             Vector(x, y) => match rhs {
                 Number(c) => if c.im != 0.0 {
@@ -68,7 +78,13 @@ impl ops::Mul<Value> for Value {
                 else {
                     Ok(Vector(x * c.re, y * c.re))
                 }
-                Vector(_, _) => Err("cannot multiply a vector with a vector. use dot(vector, vector) or cross(vector, vector) instead".into())
+                Vector(_, _) => Err("cannot multiply a vector with a vector. use dot(vector, vector) or cross(vector, vector) instead".into()),
+                Array(_) => Err("cannot multiply an array with a vector".into())
+            },
+            Array(_) => match rhs {
+                Number(_) => Err("cannot multiply an array by a number".into()),
+                Vector(_, _) => Err("cannot multiply an array with a vector".into()),
+                Array(_) => Err("cannot multiply an array by an array".into())
             }
         }
     }
@@ -87,7 +103,8 @@ impl ops::Div<Value> for Value {
                     } else {
                         Ok(Vector(x / c.re, y / c.re))
                     }
-                }
+                },
+                Array(_) => Err("cannot divide a number by an array".into())
             },
             Vector(x, y) => match rhs {
                 Number(c) => {
@@ -98,7 +115,13 @@ impl ops::Div<Value> for Value {
                     }
                 }
                 Vector(_, _) => Err("cannot divide a vector by a vector".into()),
+                Array(_) => Err("cannot divide a vector by an array".into())
             },
+            Array(_) => match rhs {
+                Number(_) => Err("cannot divide an array by a number".into()),
+                Vector(_, _) => Err("cannot divide an array by a vector".into()),
+                Array(_) => Err("cannot divide an array by an array".into())
+            }
         }
     }
 }
@@ -113,11 +136,18 @@ impl ops::Rem<Value> for Value {
             Number(c) => match rhs {
                 Number(c2) => Ok(Number(c % c2)),
                 Vector(_, _) => Err("cannot find remainder between number and vector".into()),
+                Array(_) => Err("cannot find remainder of number in terms of array".into())
             },
             Vector(_, _) => match rhs {
                 Number(_) => Err("cannot find remainder between vector and number".into()),
                 Vector(_, _) => Err("cannot find remainder between vector and vector".into()),
+                Array(_) => Err("cannot find remainder between vector and array".into())
             },
+            Array(_) => match rhs {
+                Number(_) => Err("cannot find remainder between arraay and number".into()),
+                Vector(_, _) => Err("cannot find remainder between array and number".into()),
+                Array(_) => Err("cannot find remainder between array and array".into())
+            }
         }
     }
 }
@@ -136,6 +166,7 @@ impl Value {
                     }
                 }
                 Vector(_, _) => Err("cannot raise a number to a vector power".into()),
+                Array(_) => Err("cannot raise a number to an array power".into())
             },
             Vector(x, y) => match rhs {
                 Number(c) => {
@@ -146,7 +177,13 @@ impl Value {
                     }
                 }
                 Vector(_, _) => Err("cannot raise a vector to a vector power".into()),
+                Array(_) => Err("cannot raise a vector to an array power".into())
             },
+            Array(_) => match rhs {
+                Number(_) => Err("cannot raise array to a number power".into()),
+                Vector(_, _) => Err("cannot raise array to a vector power".into()),
+                Array(_) => Err("cannot raise array to an array power".into())
+            }
         }
     }
 
@@ -158,18 +195,19 @@ impl Value {
                 } else {
                     Number(Complex64::new(0.0, 0.0))
                 }),
-                Vector(_, _) => {
-                    Err("cannot compare greater-than between a number and vector".into())
-                }
+                Vector(_, _) => Err("cannot compare greater-than between a number and vector".into()),
+                Array(_) => Err("cannot compare greater-than between a number and array".into())
             },
             Vector(_, _) => match rhs {
-                Number(_) => {
-                    Err("cannot compare greater-than between a vector and a number".into())
-                }
-                Vector(_, _) => {
-                    Err("cannot compare greater-than between a vector and a vector".into())
-                }
+                Number(_) => Err("cannot compare greater-than between a vector and a number".into()),
+                Vector(_, _) => Err("cannot compare greater-than between a vector and a vector".into()),
+                Array(_) => Err("cannot compare greater-than between a vector and an array".into())
             },
+            Array(_) => match rhs {
+                Number(_) => Err("cannot compare greater-than between an array and a number".into()),
+                Vector(_, _) => Err("cannot compare greater-than between an array and a vector".into()),
+                Array(_) => Err("cannot compare greater-than between an array and an array".into())
+            }
         }
     }
 
@@ -181,14 +219,19 @@ impl Value {
                 } else {
                     Number(Complex64::new(0.0, 0.0))
                 }),
-                Vector(_, _) => Err("cannot compare less-than between a number and vector".into()),
+                Vector(_, _) => Err("cannot compare less-than between a number and a vector".into()),
+                Array(_) => Err("cannot compare less-than between a number and an array".into())
             },
             Vector(_, _) => match rhs {
                 Number(_) => Err("cannot compare less-than between a vector and a number".into()),
-                Vector(_, _) => {
-                    Err("cannot compare less-than between a vector and a vector".into())
-                }
+                Vector(_, _) => Err("cannot compare less-than between a vector and a vector".into()),
+                Array(_) => Err("cannot compare less-than between a vector and an array".into())
             },
+            Array(_) => match rhs {
+                Number(_) => Err("cannot compare less-than between an array and a number".into()),
+                Vector(_, _) => Err("cannot compare less-than between an array and a vector".into()),
+                Array(_) => Err("cannot compare less-than between an array and an array".into())
+            }
         }
     }
 
@@ -200,18 +243,19 @@ impl Value {
                 } else {
                     Number(Complex64::new(0.0, 0.0))
                 }),
-                Vector(_, _) => {
-                    Err("cannot compare greater-than-or-equals between a number and vector".into())
-                }
+                Vector(_, _) => Err("cannot compare greater-than-or-equals between a number and vector".into()),
+                Array(_) => Err("cannot compare greater-than-or-equals between a number and an array".into())
             },
             Vector(_, _) => match rhs {
-                Number(_) => Err(
-                    "cannot compare greater-than-or-equals between a vector and a number".into(),
-                ),
-                Vector(_, _) => Err(
-                    "cannot compare greater-than-or-equals between a vector and a vector".into(),
-                ),
+                Number(_) => Err("cannot compare greater-than-or-equals between a vector and a number".into()),
+                Vector(_, _) => Err("cannot compare greater-than-or-equals between a vector and a vector".into()),
+                Array(_) => Err("cannot compare greater-than-or-equals between a vector and an array".into())
             },
+            Array(_) => match rhs {
+                Number(_) => Err("cannot compare greater-than-or-equals between an array and a number".into()),
+                Vector(_, _) => Err("cannot compare greater-than-or-equals between an array and a vector".into()),
+                Array(_) => Err("cannot compare greater-than-or-equals between an array and an array".into())
+            }
         }
     }
 
@@ -223,18 +267,19 @@ impl Value {
                 } else {
                     Number(Complex64::new(0.0, 0.0))
                 }),
-                Vector(_, _) => {
-                    Err("cannot compare greater-than-or-equals between a number and vector".into())
-                }
+                Vector(_, _) => Err("cannot compare less-than-or-equals between a number and vector".into()),
+                Array(_) => Err("cannot compare less-than-or-equals between a number and an array".into())
             },
             Vector(_, _) => match rhs {
-                Number(_) => Err(
-                    "cannot compare greater-than-or-equals between a vector and a number".into(),
-                ),
-                Vector(_, _) => Err(
-                    "cannot compare greater-than-or-equals between a vector and a vector".into(),
-                ),
+                Number(_) => Err("cannot compare less-than-or-equals between a vector and a number".into()),
+                Vector(_, _) => Err("cannot compare less-than-or-equals between a vector and a vector".into()),
+                Array(_) => Err("cannot compare less-than-or-equals between a vector and an array".into())
             },
+            Array(_) => match rhs {
+                Number(_) => Err("cannot compare less-than-or-equals between an array and a number".into()),
+                Vector(_, _) => Err("cannot compare less-than-or-equals between an array and a vector".into()),
+                Array(_) => Err("cannot compare less-than-or-equals between an array and an array".into())
+            }
         }
     }
 
@@ -247,21 +292,28 @@ impl Value {
                     Err(message)
                 }
             }
-            Vector(_, _) => Err(message),
+            _ => Err(message),
         }
     }
 
     fn expect_complex<'a>(&self, message: &'a str) -> Result<Complex64, &'a str> {
         match self {
             Number(c) => Ok(*c),
-            Vector(_, _) => Err(message),
+            _ => Err(message),
         }
     }
 
-    fn expect_vec<'a>(&self, message: &'a str) -> Result<(f64, f64), &'a str> {
+    fn expect_vector<'a>(&self, message: &'a str) -> Result<(f64, f64), &'a str> {
         match self {
             Vector(x, y) => Ok((*x, *y)),
             _ => Err(message),
+        }
+    }
+
+    fn expect_array<'a>(&mut self, message: &'a str) -> Result<&mut Vec<Value>, &'a str> {
+        match self {
+            Array(ref mut arr) => Ok(arr),
+            _ => Err(message)
         }
     }
 
@@ -271,6 +323,13 @@ impl Value {
 
     fn imaginary(i: f64) -> Self {
         Number(Complex64::new(0.0, i))
+    }
+
+    fn push(mut self, val: Value) -> Value {
+        if let Array(ref mut arr) = self {
+            arr.push(val);
+        }
+        self
     }
 }
 
@@ -295,6 +354,13 @@ impl fmt::Display for Value {
                 }
             }
             Vector(x, y) => write!(f, "({}, {})", x, y),
+            Array(arr) => {
+                let elements = arr.iter()
+                    .map(|e| format!("{}", e))
+                    .collect::<Vec<String>>();
+
+                write!(f, "[{}]", elements.join(", "))
+            }
         }
     }
 }
@@ -304,6 +370,7 @@ impl Clone for Value {
         match self {
             Number(n) => Number(*n),
             Vector(x, y) => Vector(*x, *y),
+            Array(arr) => Array(arr.clone())
         }
     }
 }
@@ -341,6 +408,7 @@ impl<'a> RuntimeState<'a> {
 
     fn add_default_globals_and_functions(&mut self) {
         self.add_global("pi", Value::real(std::f64::consts::PI));
+        self.add_global("e", Value::real(std::f64::consts::E));
 
         self.add_builtin(
             "vec",
@@ -354,7 +422,7 @@ impl<'a> RuntimeState<'a> {
         self.add_builtin(
             "x",
             BuiltinFunction::new(1, |params| {
-                let vec = params[0].expect_vec("expected vector to take x component out of")?;
+                let vec = params[0].expect_vector("expected vector to take x component out of")?;
                 Ok(Value::real(vec.0))
             }),
         );
@@ -362,7 +430,7 @@ impl<'a> RuntimeState<'a> {
         self.add_builtin(
             "y",
             BuiltinFunction::new(1, |params| {
-                let vec = params[0].expect_vec("expected vector to take y component out of")?;
+                let vec = params[0].expect_vector("expected vector to take y component out of")?;
                 Ok(Value::real(vec.1))
             }),
         );
@@ -725,8 +793,33 @@ impl<'a> RuntimeState<'a> {
                         return Ok(last_evaluated);
                     }
                 }
+            },
+            ParserNode::Array(expressions) => {
+                let mut evaluated_expressions = Vec::new();
+
+                for expression in expressions {
+                    evaluated_expressions.push(self.evaluate(expression)?);
+                }
+
+                Ok(Array(evaluated_expressions))
+            },
+            ParserNode::Index(array, index) => {
+                let mut array = self.evaluate(array)?;
+                let array = array.expect_array("cannot index a non-array")?;
+
+                let index = self.evaluate(index)?.expect_real("tried to index using non-number")?;
+
+                if index.fract() != 0.0 {
+                    return Err("cannot index arrays with non-integers".to_owned())
+                }
+
+                if index as usize >= array.len() || index < 0.0 {
+                    return Err(format!("attempted to index array of length {} with index {}", array.len(), index))
+                }
+
+                Ok(array[index as usize].clone())
             }
-            _ => unreachable!(),
+            ParserNode::Range(_, _, _) => unreachable!()
         }
     }
 }

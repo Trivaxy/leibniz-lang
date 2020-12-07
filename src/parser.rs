@@ -36,12 +36,14 @@ pub enum ParserNode<'a> {
     Number(f64, bool),   // any number, either real or imaginary
     Identifier(&'a str), // any identifier, such as a variable name, function name, etc
     Operation(InnerNode<'a>, Operator, InnerNode<'a>), // an arithmetic operation with a left and right hand side
-    Assignment(Vec<&'a str>, InnerNode<'a>),
+    Assignment(Vec<&'a str>, InnerNode<'a>), // re-assigning (possibly multiple) variables to a value
     FunctionCall(&'a str, Vec<ParserNode<'a>>), // a function call with an array of expressions as arguments
     Conditional(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // a conditional with a predicate, true expression and false expression
     FunctionDeclaration(&'a str, Vec<&'a str>, InnerNode<'a>),
     VariableDeclaration(&'a str, InnerNode<'a>),
     Range(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // any range with a lower bound, upper bound and a step
+    Array(Vec<ParserNode<'a>>), // an array full of expressions
+    Index(InnerNode<'a>, InnerNode<'a>),
     Loop(&'a str, InnerNode<'a>, InnerNode<'a>), // a loop construct that works on ranges and a named parameter
     Tree(Vec<ParserNode<'a>>),                   // a tree of nodes
 }
@@ -53,7 +55,7 @@ impl<'a> ParserNode<'a> {
                 nodes.append(&mut new_nodes);
             }
         } else {
-            panic!("tried to append nodes to a non-tree nodes");
+            panic!("tried to append nodes to a non-tree node");
         }
     }
 }
@@ -86,11 +88,12 @@ pub fn parse_leibniz_file(file: &str) -> Result<ParserNode, String> {
 fn parse_value(value: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(value);
 
-    let left_val = match pairs[0].as_rule() {
+    let mut left_val = match pairs[0].as_rule() {
         Rule::number => parse_number(pairs[0].clone()),
         Rule::identifier => parse_identifier(pairs[0].clone()),
         Rule::expression => parse_expression(pairs[0].clone()), // parenthesis
         Rule::func_call => parse_func_call(pairs[0].clone()),
+        Rule::array => parse_array(pairs[0].clone()),
         Rule::rloop => parse_loop(pairs[0].clone()),
         _ => {
             println!("{:#?}", pairs);
@@ -99,11 +102,28 @@ fn parse_value(value: Pair<Rule>) -> ParserNode {
     };
 
     if pairs.len() == 1 {
-        return left_val; // there is no power operator on the right side, so return left side only
+        return left_val; // no power operator on the right side or index, so return left side only
     }
 
-    let right_val = parse_value(pairs[2].clone());
+    let mut dropoff = 1;
 
+    for i in 1..pairs.len() {
+        let pair = &pairs[i];
+
+        if pair.as_rule() == Rule::index {
+            let index_pairs = pairs_to_vec(pair.clone());
+            left_val = ParserNode::Index(Box::new(left_val), Box::new(parse_expression(index_pairs[1].clone())));
+            dropoff += 1;
+        } else {
+            break;
+        }
+    }
+
+    if pairs.len() == dropoff {
+        return left_val;
+    }
+
+    let right_val = parse_value(pairs[dropoff + 1].clone());
     ParserNode::Operation(Box::new(left_val), Operator::Power, Box::new(right_val))
 }
 
@@ -140,6 +160,17 @@ fn parse_term(term: Pair<Rule>) -> ParserNode {
     let right_term = parse_term(pairs[2].clone());
 
     ParserNode::Operation(Box::new(left_term), operator, Box::new(right_term))
+}
+
+fn parse_array(array: Pair<Rule>) -> ParserNode {
+    let pairs = pairs_to_vec(array);
+
+    let expressions = pairs.into_iter()
+        .filter(|pair| pair.as_rule() == Rule::expression)
+        .map(|pair| parse_expression(pair))
+        .collect();
+
+    ParserNode::Array(expressions)
 }
 
 fn parse_expression(expression: Pair<Rule>) -> ParserNode {
@@ -271,7 +302,7 @@ fn parse_conditional<'a>(conditional: Pair<'a, Rule>, predicate: ParserNode<'a>)
 fn parse_loop(rloop: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(rloop);
     let range = parse_range(pairs[1].clone());
-    let expression = parse_expression(pairs[2].clone());
+    let expression = parse_tree_or_expression(pairs[2].clone());
 
     ParserNode::Loop(pairs[0].as_str(), Box::new(range), Box::new(expression))
 }

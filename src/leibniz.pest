@@ -1,9 +1,5 @@
 WHITESPACE = _{ " " | NEWLINE }
 
-number = ${ ("-"* ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT+)* ~ "i"?) | "i" }
-
-identifier = ${ !letk ~ !"i" ~ ASCII_ALPHA+ }
-
 add = { "+" }
 sub = { "-" }
 mul = { "*" }
@@ -26,12 +22,18 @@ rsquarb = { "]" }
 rarrow = _{ "=>" }
 bar = { "|" }
 
+number = ${ ("-"* ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT+)* ~ "i"?) | "i" }
+identifier = ${ !letk ~ !"i" ~ ASCII_ALPHA+ }
+
+array = { lsquarb ~ ((expression ~ (comma ~ expression)+) | expression?) ~ rsquarb }
+index = { lsquarb ~ expression ~ rsquarb }
+
 high_prec_op = _{ (mul | div | abs | grt | lst | gre | lse) }
 
-arg_list = { lparen ~ expression ~ (comma ~ expression)* ~ rparen }
+arg_list = { lparen ~ (expression ~ comma)* ~ expression? ~ rparen }
 func_call = { identifier ~ arg_list }
 
-value = { (rloop | func_call | parens | identifier | number) ~ (pow ~ value)* }
+value = { (rloop | func_call | parens | identifier | number | array) ~ index* ~ (pow ~ value)* }
 term = { value ~ (high_prec_op ~ term)* }
 parens = _{ lparen ~ expression ~ rparen }
 
