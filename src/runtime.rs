@@ -2,6 +2,7 @@ use crate::parser::{Operator, ParserNode};
 use num_complex::Complex64;
 use std::{collections::HashMap, fmt, ops};
 use Value::*;
+use std::time::Instant;
 
 #[derive(Debug)]
 pub enum Value {
@@ -428,26 +429,27 @@ impl Clone for Value {
     }
 }
 
-struct RuntimeState<'a> {
-    globals: HashMap<&'a str, Value>,
-    locals: HashMap<&'a str, Value>,
-    functions: HashMap<&'a str, &'a ParserNode<'a>>,
-    builtin_functions: HashMap<&'a str, BuiltinFunction>,
-    in_function: bool
-}
-
 struct BuiltinFunction {
     parameter_count: usize,
-    body: fn(&[Value]) -> Result<Value, String>,
+    body: fn(&[Value], &RuntimeState) -> Result<Value, String>,
 }
 
 impl BuiltinFunction {
-    fn new(params: usize, closure: fn(&[Value]) -> Result<Value, String>) -> Self {
+    fn new(params: usize, closure: fn(&[Value], &RuntimeState) -> Result<Value, String>) -> Self {
         BuiltinFunction {
             parameter_count: params,
             body: closure,
         }
     }
+}
+
+struct RuntimeState<'a> {
+    globals: HashMap<&'a str, Value>,
+    locals: HashMap<&'a str, Value>,
+    functions: HashMap<&'a str, &'a ParserNode<'a>>,
+    builtin_functions: HashMap<&'a str, BuiltinFunction>,
+    in_function: bool,
+    start_instant: Instant
 }
 
 impl<'a> RuntimeState<'a> {
@@ -457,7 +459,8 @@ impl<'a> RuntimeState<'a> {
             locals: HashMap::new(),
             functions: HashMap::new(),
             builtin_functions: HashMap::new(),
-            in_function: false
+            in_function: false,
+            start_instant: Instant::now() // this will be set later
         }
     }
 
@@ -467,7 +470,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "vec",
-            BuiltinFunction::new(2, |params| {
+            BuiltinFunction::new(2, |params, _| {
                 let x = params[0].expect_real("the x component of the vector is not a number")?;
                 let y = params[1].expect_real("the y component of the vector is not a number")?;
                 Ok(Vector(x, y))
@@ -476,7 +479,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "x",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 let vec = params[0].expect_vector("expected vector to take x component out of")?;
                 Ok(Value::real(vec.0))
             }),
@@ -484,7 +487,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "y",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 let vec = params[0].expect_vector("expected vector to take y component out of")?;
                 Ok(Value::real(vec.1))
             }),
@@ -492,7 +495,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "sin",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 let num = params[0].expect_complex("expected number to find sine of")?;
                 Ok(Number(num.sin()))
             }),
@@ -500,7 +503,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "cos",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 let num = params[0].expect_complex("expected number to find cosine of")?;
                 Ok(Number(num.cos()))
             }),
@@ -508,7 +511,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "tan",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 let num = params[0].expect_complex("expected number to find tangent of")?;
                 Ok(Number(num.tan()))
             }),
@@ -516,7 +519,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "log",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 let num = params[0].expect_complex("expected number to find logarithm of")?;
                 Ok(Number(num.log(10.0)))
             }),
@@ -524,7 +527,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "logn",
-            BuiltinFunction::new(2, |params| {
+            BuiltinFunction::new(2, |params, _| {
                 let n = params[0].expect_real("expected real base to logarithm")?;
                 let x = params[1].expect_complex("expected number to find logarithm of")?;
                 Ok(Number(x.log(n)))
@@ -533,7 +536,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "ln",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 let num =
                     params[0].expect_complex("expected number to find natural logarithm of")?;
                 Ok(Number(num.ln()))
@@ -542,7 +545,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "print",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 println!("{}", params[0]);
                 Ok(params[0].clone())
             }),
@@ -550,7 +553,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "conjugate",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 let num =
                     params[0].expect_complex("expected a complex number to find conjugate of")?;
                 Ok(Number(Complex64::new(num.re, -num.im)))
@@ -559,7 +562,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "len",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 let array =
                     params[0].expect_array("expected an array to find length of")?;
                 Ok(Value::real(array.len() as f64))
@@ -568,7 +571,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "rm",
-            BuiltinFunction::new(2, |params| {
+            BuiltinFunction::new(2, |params, _| {
                 let mut array = params[0].expect_array("expected an array to remove value from")?.clone();
                 let index = params[1].expect_real("expected a real number to index array with in rm(x, y)")?;
 
@@ -583,7 +586,7 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "ins",
-            BuiltinFunction::new(3, |params| {
+            BuiltinFunction::new(3, |params, _| {
                 let mut array = params[0].expect_array("expected an array to remove value from")?.clone();
                 let index = params[1].expect_real("expected a real number to index array with in ins(x, y, z)")?;
                 let value = params[2].clone();
@@ -599,8 +602,16 @@ impl<'a> RuntimeState<'a> {
 
         self.add_builtin(
             "mem",
-            BuiltinFunction::new(1, |params| {
+            BuiltinFunction::new(1, |params, _| {
                 Ok(Value::real(params[0].mem_size() as f64))
+            })
+        );
+
+        self.add_builtin(
+            "clock",
+            BuiltinFunction::new(1, |params, state| {
+                let time = params[0].expect_real("expected real number in clock(x)")?;
+                Ok(Value::real(state.start_instant.elapsed().as_secs_f64() - time))
             })
         );
     }
@@ -706,7 +717,7 @@ impl<'a> RuntimeState<'a> {
                         .map(|argument| argument.unwrap())
                         .collect();
 
-                    return (self.builtin_functions[name].body)(&mut evaluated_arguments);
+                    return (self.builtin_functions[name].body)(&mut evaluated_arguments, &self);
                 }
 
                 let mut functions = self
@@ -717,7 +728,7 @@ impl<'a> RuntimeState<'a> {
                     .collect::<Vec<&ParserNode>>();
 
                 if let ParserNode::FunctionDeclaration(_, parameters, body) =
-                    functions.pop().unwrap()
+                functions.pop().unwrap()
                 {
                     if arguments.len() != parameters.len() {
                         return Err(format!(
@@ -943,5 +954,6 @@ impl<'a> RuntimeState<'a> {
 pub fn execute(root: ParserNode) -> Result<Value, String> {
     let mut runtime = RuntimeState::new();
     runtime.add_default_globals_and_functions();
+    runtime.start_instant = Instant::now();
     runtime.evaluate(&root)
 }

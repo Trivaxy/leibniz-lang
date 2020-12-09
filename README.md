@@ -220,6 +220,9 @@ let x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 z: [0..len(x) - 1, 1] => (x[z] % 2) == 0 => x[z] | 0  // 30
 ```
 
+# Miscellaneous functions
+- `mem(x)` where `x` is any value. Returns the memory usage of the value in bytes
+- `clock(x)` where `x` is any real number. Returns the total time elapsed in seconds since the Leibniz script began executing, subtracted by `x`
 
 # Todo
 - Implement the rest of Leibniz types, such as matrices, imaginary numbers and so on
