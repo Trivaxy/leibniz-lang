@@ -25,7 +25,21 @@ Leibniz operators follow natural operator precedence.
 ```
 (`^` is the power operator, implemented as part of the language rather than as a function)
 
-You can create variables.
+Leibniz actually has the factorial operator built into the language in `!` notation.
+```rust
+0! // 1
+5! // 120
+3!! // 720
+```
+Be aware: the factorial operator takes precedence over all other operators.
+```rust
+5 + 3! // 11
+(5 + 3)! // 40320
+3^2! // 9
+(3^2)! // 362880
+```
+
+Leibniz allows you to create variables.
 ```rust
 let x = 5
 let y = x^2
@@ -42,20 +56,35 @@ let x = f(9) // 18
 let g(x, y, z) = x^y^z + f(x)
 ```
 
-Imaginary numbers are built into the language syntax as the symbol `i`.
+Imaginary numbers are built into the language syntax as the symbol `i`, and can be added to real numbers to form complex numbers. You can do lots of operations with them.
 ```rust
-5+90i / 2i^i // 1383.1689451587715+1665.182851006511i
+(5+90i) / (2i)^i // 295.1358207096044 + 317.66802636620474i
 sin(pi * i) // 11.548739357257746i
-let imaginaryi = -1^0.5 // i
+let awesomenumber = -1^0.5 // i
 ```
 
-Conditionals are supported, too. This brings us to the next point: Leibniz has no concept of true / false booleans like other languages. Much like C, it considers any non-zero number to be truthy, while zero is considered false-y. This means that the conditional operators Leibniz has will return `1` or `0` when used.
+Remember the factorials from earlier? For numbers that are not positive real integers (or `0`), `!` will use the gamma function to calculate a result.
+```rust
+i! // 0.4980156681183563 - 0.15494982830181042i
+2.5! // 3.3233509704478426
+(10-3.5i)! // -871441.4094531853 - 1852101.839324699i
+```
+
+Of course, with the existence of complex numbers, Leibniz has two functions you may be familiar with.
+- `Re(x)` where `x` is any number. It'll take out the real component of `x` and return it
+- `Im(x)` where `x` is any number. It'll take out the imaginary component of `x` and return it
+```rust
+Re(5+3i) // 5
+Im(2-9i) // -9
+```
+
+Leibniz supports conditionals. This brings us to the next point: Leibniz has no concept of true / false booleans like other languages. Much like C, it considers any non-zero number to be truthy, while zero is considered false-y. This means that the conditional operators Leibniz has will return `1` or `0` when used.
 ```rust
 let x = 5 < 9 // 1
 let y = x > x + 2 // 0
 ```
 
-This can be used with Leibniz's conditional operator, `=>`, which expects a predicate (any `Number` with only a real component), a true arm if the predicate is not zero, and a false arm if the predicate is zero. The syntax is like so:
+This can be used with Leibniz's conditional operator, `=>`, which expects a predicate (any real number), a true arm if the predicate is not zero, and a false arm if the predicate is zero. The syntax is like so:
 ```rust
 predicate_expression => true_expression | false_expression
 ```
@@ -63,7 +92,7 @@ And it can be used, for example, like this:
 ```rust
 let x = 5
 let y = x > 2 => 20 | x + 5 // 20
-x = 1 // leibniz allows you to reassign variables within the current scope
+x = 1 // note: leibniz allows you to reassign variables within the current scope
 y = x > 2 => 20 | x + 5 // 6
 ```
 
@@ -72,7 +101,7 @@ From this you can see that `=>` will execute the first arm (true) if the predica
 1 => 6 | 9 // 6
 ```
 
-Recursion is also supported in Leibniz. Here's a factorial function:
+Recursion is also supported in Leibniz. Let's forget Leibniz has factorial syntax and make a function ourselves:
 ```rust
 let fact(x) = x < 1 => 1 | x * fact(x - 1)
 ```
@@ -227,7 +256,8 @@ z: [0..len(x) - 1, 1] => (x[z] % 2) == 0 => x[z] | 0  // 30
 - `clock(x)` where `x` is any real number. Returns the total time elapsed in seconds since the Leibniz script began executing, subtracted by `x`
 
 # Todo
-- Implement the rest of Leibniz types, such as matrices, imaginary numbers and so on
+Leibniz still has a lot to be done.
+- Implement the rest of Leibniz types, plus the ability to create custom types
 - Make the interpreter optimize Leibniz code
 - Work on the Leibniz standard library
 - Make it possible to create graphical interactions using Leibniz
