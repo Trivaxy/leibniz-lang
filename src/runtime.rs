@@ -580,6 +580,26 @@ impl<'a> RuntimeState<'a> {
         );
 
         self.add_builtin(
+            "Re",
+            BuiltinFunction::new(1, |params, _| {
+                let num = params[0]
+                    .expect_complex("expected a complex number to find real part of")?;
+
+                Ok(Value::real(num.re))
+            }),
+        );
+
+        self.add_builtin(
+            "Im",
+            BuiltinFunction::new(1, |params, _| {
+                let num = params[0]
+                    .expect_complex("expected a complex number to find imaginary part of")?;
+
+                Ok(Value::real(num.im))
+            }),
+        );
+
+        self.add_builtin(
             "len",
             BuiltinFunction::new(1, |params, _| {
                 let array =
@@ -909,7 +929,7 @@ impl<'a> RuntimeState<'a> {
                 Ok(expression)
             }
             ParserNode::Factorial(expression) => {
-                let mut c = self.evaluate(expression)?
+                let c = self.evaluate(expression)?
                     .expect_complex("attempted to find factorial of non-number")?;
 
                 if c.im == 0.0 && c.re > 0.0 && c.re.fract() == 0.0 {
