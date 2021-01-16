@@ -22,6 +22,7 @@ lsquarb = { "[" }
 rsquarb = { "]" }
 rarrow = _{ "=>" }
 bar = { "|" }
+fact = { "!" }
 
 number = ${ ("-"* ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT+)* ~ "i"?) | "i" }
 identifier = ${ !letk ~ ASCII_ALPHA+ }
@@ -34,11 +35,11 @@ high_prec_op = _{ (mul | div | abs | grt | lst | gre | lse | eqequals) }
 arg_list = { lparen ~ (expression ~ comma)* ~ expression? ~ rparen }
 func_call = { identifier ~ arg_list }
 
-value = { (rloop | func_call | parens | number | identifier | array) ~ index* ~ (pow ~ value)* }
+value = { ((rloop | func_call | parens | number | identifier | array) ~ index* ~ fact* ~ (pow ~ value)*) }
 term = { value ~ (high_prec_op ~ term)* }
 parens = _{ lparen ~ expression ~ rparen }
 
-expression = { ((term ~ ((add | sub) ~ term)*) | negation_expression) ~ conditional? }
+expression = { (((term ~ ((add | sub) ~ term)*) | negation_expression) ~ conditional?) }
 negation_expression = { "-" ~ expression }
 
 letk = _{ "let" }

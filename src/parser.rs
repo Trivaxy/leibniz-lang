@@ -7,6 +7,7 @@ use pest::{
     Parser,
 };
 use pest_derive::Parser;
+use crate::runtime::Value;
 
 #[derive(Parser)]
 #[grammar = "leibniz.pest"]
@@ -46,6 +47,7 @@ pub enum ParserNode<'a> {
     Array(Vec<ParserNode<'a>>), // an array full of expressions
     Index(InnerNode<'a>, InnerNode<'a>),
     Loop(&'a str, InnerNode<'a>, InnerNode<'a>), // a loop construct that works on ranges and a named parameter
+    Factorial(InnerNode<'a>),                    // factorial of an expression
     Tree(Vec<ParserNode<'a>>),                   // a tree of nodes
 }
 
@@ -97,7 +99,7 @@ fn parse_value(value: Pair<Rule>) -> ParserNode {
         Rule::array => parse_array(pairs[0].clone()),
         Rule::rloop => parse_loop(pairs[0].clone()),
         _ => {
-            println!("{:#?}", pairs);
+            println!("Unknown parser pair: {:#?}", pairs);
             unreachable!()
         }
     };
@@ -120,7 +122,22 @@ fn parse_value(value: Pair<Rule>) -> ParserNode {
         }
     }
 
-    if pairs.len() == dropoff {
+    if dropoff == pairs.len() {
+        return left_val;
+    }
+
+    for i in dropoff..pairs.len() {
+        let pair = &pairs[i];
+
+        if pair.as_rule() == Rule::fact {
+            left_val = ParserNode::Factorial(Box::new(left_val));
+            dropoff += 1;
+        } else {
+            break;
+        }
+    }
+
+    if dropoff == pairs.len() {
         return left_val;
     }
 
@@ -377,7 +394,7 @@ fn get_error_message(input: &str, error: Error<Rule>) -> String {
                 Rule::rarrow => "expected => here",
                 Rule::lcurlb => "expected tree or expression",
                 Rule::range => "expected a range here",
-                Rule::EOI => "expected a matching { for the } here",
+                Rule::EOI => "unknown token",
                 _ => "unexpected character",
             }
         }

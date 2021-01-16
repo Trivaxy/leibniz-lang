@@ -1,8 +1,10 @@
 # Leibniz
 Leibniz is an interpreted but experimental programming language revolving around mathematics.
-Writing Leibniz should feel natural, and the language itself is very simple. Currently, the parser and runtime are only ~1k LOC.
+Writing Leibniz should feel natural, and the language itself is very simple. Currently, the parser and runtime are only ~1.3k LOC.
 
 # Quick tutorial
+Got 10 minutes to spare? This'll make you master the language. Yes, it's that simple.
+
 Leibniz currently has three data types, until the rest are implemented:
 - `Number`: The most basic data type. It's a complex number with double-precision real and imaginary components. Leibniz makes the distinction between real and complex numbers depending on whether or not there is an imaginary component.
 - `Vector`: As the name implies, it's a vector, which is a pair of two `Number`s that must be real.

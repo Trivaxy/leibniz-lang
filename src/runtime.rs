@@ -347,13 +347,6 @@ impl Value {
         }
     }
 
-    fn expect_mut_array<'a>(&mut self, message: &'a str) -> Result<&mut Vec<Value>, &'a str> {
-        match self {
-            Array(arr) => Ok(arr),
-            _ => Err(message)
-        }
-    }
-
     fn mem_size(&self) -> usize {
         let value_size = std::mem::size_of::<Value>();
 
@@ -384,6 +377,32 @@ impl Value {
             arr.push(val);
         }
         self
+    }
+
+    fn gamma(self) -> ValueOutput {
+        const P: [f64; 8] = [
+            676.5203681218851, -1259.1392167224028,
+            771.32342877765313, -176.61502916214059,
+            12.507343278686905, -0.13857109526572012,
+            9.9843695780195716e-6, 1.5056327351493116e-7
+        ];
+
+        let pi = Complex64::new(std::f64::consts::PI, 0.0);
+        let mut c = self.expect_complex("cannot calculate gamma for non-number")?;
+
+        if c.re < 0.5 {
+            Ok(Value::Number(pi / (((pi * c).sin()) * (1.0 - c))).gamma()?)
+        } else {
+            let mut x = Complex64::new(0.99999999999980993, 0.0);
+            c -= 1.0;
+
+            for i in 0..P.len() {
+                x += P[i] / (c + (i as f64) + 1.0)
+            }
+
+            let t = c + (P.len() as f64) - 0.5;
+            Ok(Value::Number((2.0 * pi).sqrt() * t.powc(c + 0.5) * (-t).exp() * x))
+        }
     }
 }
 
@@ -888,6 +907,24 @@ impl<'a> RuntimeState<'a> {
                 }
 
                 Ok(expression)
+            }
+            ParserNode::Factorial(expression) => {
+                let mut c = self.evaluate(expression)?
+                    .expect_complex("attempted to find factorial of non-number")?;
+
+                if c.im == 0.0 && c.re > 0.0 && c.re.fract() == 0.0 {
+                    let mut factorial = c.re as i64;
+
+                    for n in (2..c.re as i64).rev() {
+                        factorial *= n;
+                    }
+
+                    return Ok(Value::real(factorial as f64));
+                } else if c.re == 0.0 && c.im == 0.0 {
+                    return Ok(Value::real(1.0));
+                } else {
+                    Value::Number(c + 1.0).gamma()
+                }
             }
             ParserNode::Tree(nodes) => {
                 if nodes.is_empty() {
