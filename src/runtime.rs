@@ -3,12 +3,14 @@ use num_complex::Complex64;
 use std::{collections::HashMap, fmt, ops};
 use Value::*;
 use std::time::Instant;
+use std::collections::HashSet;
+use linked_hash_map::LinkedHashMap;
 
 #[derive(Debug)]
 pub enum Value {
     Number(Complex64),
-    Vector(f64, f64),
-    Array(Vec<Value>)
+    Array(Vec<Value>),
+    Custom(String, LinkedHashMap<String, Value>)
 }
 
 type ValueOutput = Result<Value, String>;
@@ -20,11 +22,27 @@ impl PartialEq for Value {
                 Number(n2) => n.re == n2.re && n.im == n2.im,
                 _ => false,
             },
-            Vector(x, y) => match other {
-                Vector(x2, y2) => x == x2 && y == y2,
-                _ => false,
+            Array(_) => false,
+            Custom(name, values) => match other {
+                Custom(other_name, other_values) => {
+                    if name != other_name {
+                        return false;
+                    }
+
+                    for key in values.keys() {
+                        if !other_values.contains_key(key) {
+                            return false;
+                        }
+                        else if values[key] != other_values[key] {
+                            return false;
+                        }
+                    }
+
+                    true
+                },
+                Number(_) => false,
+                Array(_) => false
             }
-            Array(_) => false
         }
     }
 }
@@ -38,15 +56,15 @@ impl ops::Add<Value> for Value {
         match self {
             Number(c) => match rhs {
                 Number(c2) => Ok(Number(c + c2)),
-                Vector(_, _) => Err("cannot add a number to a vector".into()),
-                Array(_) => Ok(rhs.push(self))
-            },
-            Vector(x, y) => match rhs {
-                Number(_) => Err("cannot add a vector to a number".into()),
-                Vector(x2, y2) => Ok(Vector(x + x2, y + y2)),
                 Array(_) => Ok(rhs.push(self)),
+                Custom(_, _) => Err("cannot add a number to a custom value".into())
             },
-            Array(_) => Ok(self.push(rhs))
+            Array(_) => Ok(self.push(rhs)),
+            Custom(_, _) => match rhs {
+                Number(_) => Err("cannot add a custom value to a number".into()),
+                Array(_) => Err("cannot add a custom value to an array".into()),
+                Custom(_, _) => Err("cannot add a custom type to a custom type".into())
+            }
         }
     }
 }
@@ -58,18 +76,18 @@ impl ops::Sub<Value> for Value {
         match self {
             Number(c) => match rhs {
                 Number(c2) => Ok(Number(c - c2)),
-                Vector(_, _) => Err("cannot subtract a number from a vector".into()),
                 Array(_) => Err("cannot subtract an array from a number".into()),
-            },
-            Vector(x, y) => match rhs {
-                Number(_) => Err("cannot subtract a vector from a number".into()),
-                Vector(x2, y2) => Ok(Vector(x - x2, y - y2)),
-                Array(_) => Err("cannot subtract an array from a vector".into()),
+                Custom(_, _) => Err("cannot subtract a custom value from a number".into())
             },
             Array(_) => match rhs {
                 Number(_) => Err("cannot subtract a number from an array".into()),
-                Vector(_, _) => Err("cannot subtract a vector from an array".into()),
-                Array(_) => Err("cannot subtract an array from an array".into())
+                Array(_) => Err("cannot subtract an array from an array".into()),
+                Custom(_, _) => Err("cannot subtract a custom value from an array".into())
+            },
+            Custom(_, _) => match rhs {
+                Number(_) => Err("cannot subtract a number from a custom value".into()),
+                Array(_) => Err("cannot subtract an array from a custom value".into()),
+                Custom(_, _) => Err("cannot subtract a custom type from a custom type".into())
             }
         }
     }
@@ -82,28 +100,18 @@ impl ops::Mul<Value> for Value {
         match self {
             Number(c) => match rhs {
                 Number(c2) => Ok(Number(c * c2)),
-                Vector(x, y) => if c.im != 0.0 {
-                    Err("cannot multiply a vector with a complex number".into())
-                }
-                else {
-                    Ok(Vector(x * c.re, y * c.re))
-                },
-                Array(_) => Err("cannot multiply a number by an array".into())
-            },
-            Vector(x, y) => match rhs {
-                Number(c) => if c.im != 0.0 {
-                    Err("cannot multiply a vector with a complex number".into())
-                }
-                else {
-                    Ok(Vector(x * c.re, y * c.re))
-                }
-                Vector(_, _) => Err("cannot multiply a vector with a vector. use dot(vector, vector) or cross(vector, vector) instead".into()),
-                Array(_) => Err("cannot multiply an array with a vector".into())
+                Array(_) => Err("cannot multiply a number by an array".into()),
+                Custom(_, _) => Err("cannot multiply a number by a custom value".into())
             },
             Array(_) => match rhs {
                 Number(_) => Err("cannot multiply an array by a number".into()),
-                Vector(_, _) => Err("cannot multiply an array with a vector".into()),
-                Array(_) => Err("cannot multiply an array by an array".into())
+                Array(_) => Err("cannot multiply an array by an array".into()),
+                Custom(_, _) => Err("cannot multiply an array by a custom value".into())
+            },
+            Custom(_, _) => match rhs {
+                Number(_) => Err("cannot multiply a custom value by a number".into()),
+                Array(_) => Err("cannot multiply a custom value by an array".into()),
+                Custom(_, _) => Err("cannot multiply a custom value by a custom value".into())
             }
         }
     }
@@ -116,30 +124,18 @@ impl ops::Div<Value> for Value {
         match self {
             Number(c) => match rhs {
                 Number(c2) => Ok(Number(c / c2)),
-                Vector(x, y) => {
-                    if c.im != 0.0 {
-                        Err("cannot divide a vector by a complex number".into())
-                    } else {
-                        Ok(Vector(x / c.re, y / c.re))
-                    }
-                },
-                Array(_) => Err("cannot divide a number by an array".into())
-            },
-            Vector(x, y) => match rhs {
-                Number(c) => {
-                    if c.im != 0.0 {
-                        Err("cannot divide a vector by a complex number".into())
-                    } else {
-                        Ok(Vector(x / c.re, y / c.re))
-                    }
-                }
-                Vector(_, _) => Err("cannot divide a vector by a vector".into()),
-                Array(_) => Err("cannot divide a vector by an array".into())
+                Array(_) => Err("cannot divide a number by an array".into()),
+                Custom(_, _) => Err("cannot divide a number by a custom value".into())
             },
             Array(_) => match rhs {
                 Number(_) => Err("cannot divide an array by a number".into()),
-                Vector(_, _) => Err("cannot divide an array by a vector".into()),
-                Array(_) => Err("cannot divide an array by an array".into())
+                Array(_) => Err("cannot divide an array by an array".into()),
+                Custom(_, _) => Err("cannot divide an array by a custom value".into())
+            },
+            Custom(_, _) => match rhs {
+                Number(c2) => Err("cannot divide a custom value by a number".into()),
+                Array(_) => Err("cannot divide a custom value by an array".into()),
+                Custom(_, _) => Err("cannot divide a custom value by a custom value".into())
             }
         }
     }
@@ -154,19 +150,19 @@ impl ops::Rem<Value> for Value {
         match self {
             Number(c) => match rhs {
                 Number(c2) => Ok(Number(c % c2)),
-                Vector(_, _) => Err("cannot find remainder between number and vector".into()),
-                Array(_) => Err("cannot find remainder of number in terms of array".into())
-            },
-            Vector(_, _) => match rhs {
-                Number(_) => Err("cannot find remainder between vector and number".into()),
-                Vector(_, _) => Err("cannot find remainder between vector and vector".into()),
-                Array(_) => Err("cannot find remainder between vector and array".into())
+                Array(_) => Err("cannot find remainder of number in terms of array".into()),
+                Custom(_, _) => Err("cannot find remainder between number and custom value".into())
             },
             Array(_) => match rhs {
-                Number(_) => Err("cannot find remainder between arraay and number".into()),
-                Vector(_, _) => Err("cannot find remainder between array and number".into()),
-                Array(_) => Err("cannot find remainder between array and array".into())
-            }
+                Number(_) => Err("cannot find remainder between array and number".into()),
+                Array(_) => Err("cannot find remainder between array and array".into()),
+                Custom(_, _) => Err("cannot find remainder between array and custom value".into())
+            },
+            Custom(_, _) => match rhs {
+                Number(_) => Err("cannot find remainder between custom value and number".into()),
+                Array(_) => Err("cannot find remainder between custom value and array".into()),
+                Custom(_, _) => Err("cannot find remainder between custom value and custom value".into())
+            },
         }
     }
 }
@@ -184,32 +180,22 @@ impl Value {
                         Ok(Number(c.powc(c2)))
                     }
                 }
-                Vector(_, _) => Err("cannot raise a number to a vector power".into()),
-                Array(_) => Err("cannot raise a number to an array power".into())
-            },
-            Vector(x, y) => match rhs {
-                Number(c) => {
-                    if c.im != 0.0 {
-                        Err("cannot raise vector to a complex power".into())
-                    } else {
-                        Ok(Vector(x.powf(c.re), y.powf(c.re)))
-                    }
-                }
-                Vector(_, _) => Err("cannot raise a vector to a vector power".into()),
-                Array(_) => Err("cannot raise a vector to an array power".into())
+                Array(_) => Err("cannot raise a number to an array power".into()),
+                Custom(_, _) => Err("cannot raise a number to a custom value power".into())
             },
             Array(_) => match rhs {
                 Number(_) => Err("cannot raise array to a number power".into()),
-                Vector(_, _) => Err("cannot raise array to a vector power".into()),
-                Array(_) => Err("cannot raise array to an array power".into())
-            }
+                Array(_) => Err("cannot raise array to an array power".into()),
+                Custom(_, _) => Err("cannot raise array to a custom value power".into())
+            },
+            Custom(_, _) => match rhs {
+                Number(_) => Err("cannot raise custom value to a number power".into()),
+                Array(_) => Err("cannot raise custom value to an array power".into()),
+                Custom(_, _) => Err("cannot raise custom value to a custom value power".into())
+            },
         }
     }
 
-    // why are other inequalities a Result, but equals is not?
-    // answer: other inequalities are literally undefined for different data types
-    // but equals will work for all. a vector being greater than an imaginary is undefined,
-    // but a vector being equal to an imaginary is very clearly false.
     fn equals(self, rhs: Value) -> Value {
         match self == rhs {
             true => Value::real(1.0),
@@ -219,49 +205,69 @@ impl Value {
 
     fn greater_than(self, rhs: Value) -> ValueOutput {
         match self {
-            Number(c) => match rhs {
-                Number(c2) => Ok(if c.norm() > c2.norm() {
-                    Number(Complex64::new(1.0, 0.0))
-                } else {
-                    Number(Complex64::new(0.0, 0.0))
-                }),
-                Vector(_, _) => Err("cannot compare greater-than between a number and vector".into()),
-                Array(_) => Err("cannot compare greater-than between a number and array".into())
-            },
-            Vector(_, _) => match rhs {
-                Number(_) => Err("cannot compare greater-than between a vector and a number".into()),
-                Vector(_, _) => Err("cannot compare greater-than between a vector and a vector".into()),
-                Array(_) => Err("cannot compare greater-than between a vector and an array".into())
-            },
+            Number(c) => {
+                if c.im != 0.0 {
+                    return Err("cannot compare greater-than with complex numbers".into());
+                }
+                match rhs {
+                    Number(c2) => {
+                        if c2.im != 0.0 {
+                            return Err("cannot compare greater-than with complex numbers".into());
+                        }
+                        Ok(if c.re > c2.re {
+                            Number(Complex64::new(1.0, 0.0))
+                        } else {
+                            Number(Complex64::new(0.0, 0.0))
+                        })
+                    },
+                    Array(_) => Err("cannot compare greater-than between a number and array".into()),
+                    Custom(_, _) => Err("cannot compare greater-than between number and custom value".into())
+                }
+            }
             Array(_) => match rhs {
                 Number(_) => Err("cannot compare greater-than between an array and a number".into()),
-                Vector(_, _) => Err("cannot compare greater-than between an array and a vector".into()),
-                Array(_) => Err("cannot compare greater-than between an array and an array".into())
+                Array(_) => Err("cannot compare greater-than between an array and an array".into()),
+                Custom(_, _) => Err("cannot compare greater-than between array and a custom value".into())
+            },
+            Custom(_, _) => match rhs {
+                Number(_) => Err("cannot compare greater-than between a custom value and a number".into()),
+                Array(_) => Err("cannot compare greater-than between a custom value and an array".into()),
+                Custom(_, _) => Err("cannot compare greater-than between a custom value and a custom value".into())
             }
         }
     }
 
     fn less_than(self, rhs: Value) -> ValueOutput {
         match self {
-            Number(c) => match rhs {
-                Number(c2) => Ok(if c.norm() < c2.norm() {
-                    Number(Complex64::new(1.0, 0.0))
-                } else {
-                    Number(Complex64::new(0.0, 0.0))
-                }),
-                Vector(_, _) => Err("cannot compare less-than between a number and a vector".into()),
-                Array(_) => Err("cannot compare less-than between a number and an array".into())
-            },
-            Vector(_, _) => match rhs {
-                Number(_) => Err("cannot compare less-than between a vector and a number".into()),
-                Vector(_, _) => Err("cannot compare less-than between a vector and a vector".into()),
-                Array(_) => Err("cannot compare less-than between a vector and an array".into())
+            Number(c) => {
+                if c.im != 0.0 {
+                    return Err("cannot compare less-than with complex numbers".into());
+                }
+                match rhs {
+                    Number(c2) => {
+                        if c2.im != 0.0 {
+                            return Err("cannot compare less-than with complex numbers".into());
+                        }
+                        Ok(if c.re < c2.re {
+                            Number(Complex64::new(1.0, 0.0))
+                        } else {
+                            Number(Complex64::new(0.0, 0.0))
+                        })
+                    },
+                    Array(_) => Err("cannot compare less-than between a number and array".into()),
+                    Custom(_, _) => Err("cannot compare less-than between a number and custom value".into())
+                }
             },
             Array(_) => match rhs {
                 Number(_) => Err("cannot compare less-than between an array and a number".into()),
-                Vector(_, _) => Err("cannot compare less-than between an array and a vector".into()),
-                Array(_) => Err("cannot compare less-than between an array and an array".into())
-            }
+                Array(_) => Err("cannot compare less-than between an array and an array".into()),
+                Custom(_, _) => Err("cannot compare less-than between an array and a custom value".into())
+            },
+            Custom(_, _) => match rhs {
+                Number(_) => Err("cannot compare less-than between a custom value and a number".into()),
+                Array(_) => Err("cannot compare less-than between a custom value and an array".into()),
+                Custom(_, _) => Err("cannot compare less-than between a custom value and a custom value".into())
+            },
         }
     }
 
@@ -273,18 +279,18 @@ impl Value {
                 } else {
                     Number(Complex64::new(0.0, 0.0))
                 }),
-                Vector(_, _) => Err("cannot compare greater-than-or-equals between a number and vector".into()),
-                Array(_) => Err("cannot compare greater-than-or-equals between a number and an array".into())
-            },
-            Vector(_, _) => match rhs {
-                Number(_) => Err("cannot compare greater-than-or-equals between a vector and a number".into()),
-                Vector(_, _) => Err("cannot compare greater-than-or-equals between a vector and a vector".into()),
-                Array(_) => Err("cannot compare greater-than-or-equals between a vector and an array".into())
+                Array(_) => Err("cannot compare greater-than-or-equals between a number and an array".into()),
+                Custom(_, _) => Err("cannot compare greater-than-or-equals between a number and a custom value".into())
             },
             Array(_) => match rhs {
                 Number(_) => Err("cannot compare greater-than-or-equals between an array and a number".into()),
-                Vector(_, _) => Err("cannot compare greater-than-or-equals between an array and a vector".into()),
-                Array(_) => Err("cannot compare greater-than-or-equals between an array and an array".into())
+                Array(_) => Err("cannot compare greater-than-or-equals between an array and an array".into()),
+                Custom(_, _) => Err("cannot compare greater-than-or-equals between an array and a custom value".into())
+            },
+            Custom(_, _) => match rhs {
+                Number(_) => Err("cannot compare greater-than-or-equals between a custom value and a number".into()),
+                Array(_) => Err("cannot compare greater-than-or-equals between a custom value and an array".into()),
+                Custom(_, _) => Err("cannot compare greater-than-or-equals between a custom value and a custom value".into())
             }
         }
     }
@@ -297,18 +303,18 @@ impl Value {
                 } else {
                     Number(Complex64::new(0.0, 0.0))
                 }),
-                Vector(_, _) => Err("cannot compare less-than-or-equals between a number and vector".into()),
-                Array(_) => Err("cannot compare less-than-or-equals between a number and an array".into())
-            },
-            Vector(_, _) => match rhs {
-                Number(_) => Err("cannot compare less-than-or-equals between a vector and a number".into()),
-                Vector(_, _) => Err("cannot compare less-than-or-equals between a vector and a vector".into()),
-                Array(_) => Err("cannot compare less-than-or-equals between a vector and an array".into())
+                Array(_) => Err("cannot compare less-than-or-equals between a number and an array".into()),
+                Custom(_, _) => Err("cannot compare less-than-or-equals between a number and a custom value".into()),
             },
             Array(_) => match rhs {
                 Number(_) => Err("cannot compare less-than-or-equals between an array and a number".into()),
-                Vector(_, _) => Err("cannot compare less-than-or-equals between an array and a vector".into()),
-                Array(_) => Err("cannot compare less-than-or-equals between an array and an array".into())
+                Array(_) => Err("cannot compare less-than-or-equals between an array and an array".into()),
+                Custom(_, _) => Err("cannot compare less-than-or-equals between an array and a custom value".into())
+            },
+            Custom(_, _) => match rhs {
+                Number(_) => Err("cannot compare less-than-or-equals between a custom value and a number".into()),
+                Array(_) => Err("cannot compare less-than-or-equals between a custom value and an array".into()),
+                Custom(_, _) => Err("cannot compare less-than-or-equals between a custom value and a custom value".into())
             }
         }
     }
@@ -329,13 +335,6 @@ impl Value {
     fn expect_complex<'a>(&self, message: &'a str) -> Result<Complex64, &'a str> {
         match self {
             Number(c) => Ok(*c),
-            _ => Err(message),
-        }
-    }
-
-    fn expect_vector<'a>(&self, message: &'a str) -> Result<(f64, f64), &'a str> {
-        match self {
-            Vector(x, y) => Ok((*x, *y)),
             _ => Err(message),
         }
     }
@@ -426,13 +425,19 @@ impl fmt::Display for Value {
                     }
                 }
             }
-            Vector(x, y) => write!(f, "({}, {})", x, y),
             Array(arr) => {
                 let elements = arr.iter()
                     .map(|e| format!("{}", e))
                     .collect::<Vec<String>>();
 
                 write!(f, "[{}]", elements.join(", "))
+            },
+            Custom(name, values) => {
+                let values = values.iter()
+                    .map(|v| format!("{}: {}", v.0, v.1))
+                    .collect::<Vec<String>>();
+
+                write!(f, "{} <{}>", name, values.join(", "))
             }
         }
     }
@@ -442,8 +447,8 @@ impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
             Number(n) => Number(*n),
-            Vector(x, y) => Vector(*x, *y),
-            Array(arr) => Array(arr.clone())
+            Array(arr) => Array(arr.clone()),
+            Custom(name, values) => Custom(name.clone(), values.clone())
         }
     }
 }
@@ -467,6 +472,8 @@ struct RuntimeState<'a> {
     locals: HashMap<&'a str, Value>,
     functions: HashMap<&'a str, &'a ParserNode<'a>>,
     builtin_functions: HashMap<&'a str, BuiltinFunction>,
+    access_functions: HashSet<&'a str>,
+    types: HashMap<&'a str, Vec<(&'a str, &'a str)>>,
     in_function: bool,
     start_instant: Instant
 }
@@ -478,6 +485,8 @@ impl<'a> RuntimeState<'a> {
             locals: HashMap::new(),
             functions: HashMap::new(),
             builtin_functions: HashMap::new(),
+            access_functions: HashSet::new(),
+            types: HashMap::new(),
             in_function: false,
             start_instant: Instant::now() // this will be set later
         }
@@ -486,31 +495,6 @@ impl<'a> RuntimeState<'a> {
     fn add_default_globals_and_functions(&mut self) {
         self.add_global("pi", Value::real(std::f64::consts::PI));
         self.add_global("e", Value::real(std::f64::consts::E));
-
-        self.add_builtin(
-            "vec",
-            BuiltinFunction::new(2, |params, _| {
-                let x = params[0].expect_real("the x component of the vector is not a number")?;
-                let y = params[1].expect_real("the y component of the vector is not a number")?;
-                Ok(Vector(x, y))
-            }),
-        );
-
-        self.add_builtin(
-            "x",
-            BuiltinFunction::new(1, |params, _| {
-                let vec = params[0].expect_vector("expected vector to take x component out of")?;
-                Ok(Value::real(vec.0))
-            }),
-        );
-
-        self.add_builtin(
-            "y",
-            BuiltinFunction::new(1, |params, _| {
-                let vec = params[0].expect_vector("expected vector to take y component out of")?;
-                Ok(Value::real(vec.1))
-            }),
-        );
 
         self.add_builtin(
             "sin",
@@ -563,11 +547,31 @@ impl<'a> RuntimeState<'a> {
         );
 
         self.add_builtin(
-            "print",
+            "println",
             BuiltinFunction::new(1, |params, _| {
                 println!("{}", params[0]);
                 Ok(params[0].clone())
             }),
+        );
+
+        self.add_builtin(
+            "print",
+            BuiltinFunction::new(1, |params, _| {
+
+                print!("{}", params[0]);
+                Ok(params[0].clone())
+            }),
+        );
+
+        self.add_builtin(
+            "printe",
+            BuiltinFunction::new(1, |params, _| {
+                let n =
+                    params[0].expect_real("expected real number in printe(x)")? as usize;
+
+                print!("{}", " ".repeat(n));
+                Ok(params[0].clone())
+            })
         );
 
         self.add_builtin(
@@ -640,6 +644,26 @@ impl<'a> RuntimeState<'a> {
         );
 
         self.add_builtin(
+            "floor",
+            BuiltinFunction::new(1, |params, _| {
+                let number =
+                    params[0].expect_complex("expected number to floor")?;
+
+                Ok(Value::Number(Complex64::new(number.re.floor(), number.im.floor())))
+            })
+        );
+
+        self.add_builtin(
+            "round",
+            BuiltinFunction::new(1, |params, _| {
+                let number =
+                    params[0].expect_complex("expected number to round")?;
+
+                Ok(Value::Number(Complex64::new(number.re.round(), number.im.round())))
+            })
+        );
+
+        self.add_builtin(
             "mem",
             BuiltinFunction::new(1, |params, _| {
                 Ok(Value::real(params[0].mem_size() as f64))
@@ -687,6 +711,22 @@ impl<'a> RuntimeState<'a> {
         self.functions.contains_key(name) || self.builtin_functions.contains_key(name)
     }
 
+    fn add_type(&mut self, name: &'a str, type_constraints: Vec<(&'a str, &'a str)>) {
+        self.types.insert(name, type_constraints);
+    }
+
+    fn has_type(&self, name: &'a str) -> bool {
+        self.types.contains_key(name)
+    }
+
+    fn add_access_function(&mut self, name: &'a str) {
+        self.access_functions.insert(name);
+    }
+
+    fn has_access_function(&self, name: &'a str) -> bool {
+        self.access_functions.contains(name)
+    }
+
     fn evaluate(&mut self, node: &'a ParserNode<'a>) -> Result<Value, String> {
         match node {
             ParserNode::Number(num, imaginary) => {
@@ -724,10 +764,6 @@ impl<'a> RuntimeState<'a> {
                 })
             }
             ParserNode::FunctionCall(name, arguments) => {
-                if !self.has_function(name) {
-                    return Err(format!("unknown function: {}", name));
-                }
-
                 self.in_function = true;
 
                 if self.builtin_functions.contains_key(name) {
@@ -758,56 +794,104 @@ impl<'a> RuntimeState<'a> {
 
                     return (self.builtin_functions[name].body)(&mut evaluated_arguments, &self);
                 }
+                else if self.functions.contains_key(name) {
+                    let mut functions = self
+                        .functions
+                        .iter()
+                        .filter(|function| *function.0 == *name)
+                        .map(|function| *function.1)
+                        .collect::<Vec<&ParserNode>>();
 
-                let mut functions = self
-                    .functions
-                    .iter()
-                    .filter(|function| *function.0 == *name)
-                    .map(|function| *function.1)
-                    .collect::<Vec<&ParserNode>>();
+                    if let ParserNode::FunctionDeclaration(_, parameters, body) = functions.pop().unwrap()
+                    {
+                        if arguments.len() != parameters.len() {
+                            return Err(format!(
+                                "{} expects {} parameters, but only {} were supplied",
+                                name,
+                                parameters.len(),
+                                arguments.len()
+                            ));
+                        }
 
-                if let ParserNode::FunctionDeclaration(_, parameters, body) =
-                functions.pop().unwrap()
-                {
-                    if arguments.len() != parameters.len() {
+                        let mut preserved_locals = HashMap::new();
+
+                        for parameter in parameters.iter() {
+                            if self.has_local(parameter) {
+                                preserved_locals.insert(*parameter, self.locals[parameter].clone());
+                            }
+                        }
+
+                        for i in 0..arguments.len() {
+                            let arg_value = self.evaluate(&arguments[i])?;
+                            self.add_local(parameters[i], arg_value);
+                        }
+
+                        let result = self.evaluate(&*body)?;
+
+                        for i in 0..parameters.len() {
+                            let parameter = parameters[i];
+
+                            if !preserved_locals.contains_key(parameter) {
+                                self.remove_local(parameter);
+                            } else {
+                                self.add_local(parameter, preserved_locals[parameter].clone());
+                            }
+                        }
+
+                        self.in_function = false;
+
+                        return Ok(result);
+                    } else {
+                        unreachable!()
+                    }
+                }
+                else if self.has_type(name) {
+                    let len = self.types[name].len();
+
+                    if len != arguments.len() {
                         return Err(format!(
-                            "{} expects {} parameters, but only {} were supplied",
+                            "{} requires {} arguments to create, but {} were supplied",
                             name,
-                            parameters.len(),
+                            len,
                             arguments.len()
                         ));
                     }
 
-                    let mut preserved_locals = HashMap::new();
+                    let mut evaluated_arguments = Vec::new();
 
-                    for parameter in parameters.iter() {
-                        if self.has_local(parameter) {
-                            preserved_locals.insert(*parameter, self.locals[parameter].clone());
+                    for node in arguments {
+                        evaluated_arguments.push(self.evaluate(node)?);
+                    }
+
+                    let mut hashmap_values = LinkedHashMap::new();
+
+                    // TODO: type checking
+                    for i in 0..len {
+                        hashmap_values.insert(self.types[name][i].0.into(), evaluated_arguments[i].clone());
+                    }
+
+                    Ok(Custom((*name).to_owned(), hashmap_values))
+                }
+                else if self.has_access_function(name) {
+                    if arguments.len() != 1 {
+                        return Err(format!("can only use access function '{}' with 1 argument", name));
+                    }
+
+                    let argument = self.evaluate(&arguments[0])?;
+
+                    if let Custom(type_name, values) = argument {
+                        if !values.contains_key(*name) {
+                            return Err(format!("'{}' does not have a component '{}'", type_name, name));
                         }
+
+                        return Ok(values[*name].clone());
                     }
-
-                    for i in 0..arguments.len() {
-                        let arg_value = self.evaluate(&arguments[i])?;
-                        self.add_local(parameters[i], arg_value);
+                    else {
+                        Err(format!("accessor function '{}' expects a custom value", name))
                     }
-
-                    let result = self.evaluate(&*body)?;
-
-                    for i in 0..parameters.len() {
-                        let parameter = parameters[i];
-
-                        if !preserved_locals.contains_key(parameter) {
-                            self.remove_local(parameter);
-                        } else {
-                            self.add_local(parameter, preserved_locals[parameter].clone());
-                        }
-                    }
-
-                    self.in_function = false;
-
-                    return Ok(result);
-                } else {
-                    unreachable!()
+                }
+                else {
+                    Err(format!("function '{}' does not exist", name))
                 }
             }
             ParserNode::Conditional(predicate, true_expr, false_expr) => {
@@ -816,9 +900,9 @@ impl<'a> RuntimeState<'a> {
                     .expect_real("a predicate to a conditional expression must be a number")?;
 
                 if predicate != 0.0 {
-                    return Ok(self.evaluate(&*true_expr)?);
+                    Ok(self.evaluate(&*true_expr)?)
                 } else {
-                    return Ok(self.evaluate(&*false_expr)?);
+                    Ok(self.evaluate(&*false_expr)?)
                 }
             }
             ParserNode::FunctionDeclaration(name, _, _) => {
@@ -830,6 +914,29 @@ impl<'a> RuntimeState<'a> {
                 }
 
                 self.add_function(name, node);
+
+                Ok(Value::real(0.0))
+            }
+            ParserNode::TypeDeclaration(name, fields) => {
+                if self.has_type(name) {
+                    return Err(format!{
+                        "redeclared a type that already is defined: {}",
+                        name
+                    });
+                }
+
+                if self.has_function(name) {
+                    return Err(format!{
+                        "cannot define the following type since a function with that name exists: {}",
+                        name
+                    });
+                }
+
+                self.add_type(name, fields.clone());
+
+                for (key, _) in fields {
+                    self.add_access_function(key);
+                }
 
                 Ok(Value::real(0.0))
             }

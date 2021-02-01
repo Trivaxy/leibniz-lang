@@ -12,3 +12,7 @@ let rotvec(v, r) = {
 let dot(x, y) = x(x) * x(y) + y(x) * y(y)
 
 let ncr(n, r) = n! / ((n-r)! * r!)
+
+let rep(a, x, v) = ins(rm(a, x), x, v)
+
+let abs(x) = x < 0 => -x | x

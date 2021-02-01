@@ -42,6 +42,7 @@ pub enum ParserNode<'a> {
     FunctionCall(&'a str, Vec<ParserNode<'a>>), // a function call with an array of expressions as arguments
     Conditional(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // a conditional with a predicate, true expression and false expression
     FunctionDeclaration(&'a str, Vec<&'a str>, InnerNode<'a>),
+    TypeDeclaration(&'a str, Vec<(&'a str, &'a str)>),
     VariableDeclaration(&'a str, InnerNode<'a>),
     Range(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // any range with a lower bound, upper bound and a step
     Array(Vec<ParserNode<'a>>), // an array full of expressions
@@ -76,6 +77,7 @@ pub fn parse_leibniz_file(file: &str) -> Result<ParserNode, String> {
     for pair in root.into_inner() {
         nodes.push(match pair.as_rule() {
             Rule::func_decl => parse_func_decl(pair),
+            Rule::type_decl => parse_type_decl(pair),
             Rule::var_decl => parse_var_decl(pair),
             Rule::tree | Rule::expression => parse_tree_or_expression(pair),
             Rule::assignment => parse_assignment(pair),
@@ -246,6 +248,23 @@ fn parse_assignment(assignment: Pair<Rule>) -> ParserNode {
     ParserNode::Assignment(identifiers, Box::new(expression))
 }
 
+fn parse_type_decl(declaration: Pair<Rule>) -> ParserNode {
+    let pairs = pairs_to_vec(declaration);
+
+    let type_name = pairs[0].as_str();
+
+    let type_constraints = pairs
+        .iter()
+        .filter(|pair| pair.as_rule() == Rule::type_constr)
+        .map(|pair| {
+            let inner_pairs = pairs_to_vec(pair.clone());
+            (inner_pairs[0].as_str(), inner_pairs[2].as_str())
+        })
+        .collect();
+
+    ParserNode::TypeDeclaration(type_name, type_constraints)
+}
+
 fn parse_var_decl(declaration: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(declaration);
 
@@ -337,6 +356,7 @@ fn parse_range(range: Pair<Rule>) -> ParserNode {
 fn parse_action(action: Pair<Rule>) -> ParserNode {
     match action.as_rule() {
         Rule::func_decl => parse_func_decl(action),
+        Rule::type_decl => parse_type_decl(action),
         Rule::var_decl => parse_var_decl(action),
         Rule::rloop => parse_loop(action),
         Rule::assignment => parse_assignment(action),
