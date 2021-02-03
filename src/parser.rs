@@ -7,7 +7,6 @@ use pest::{
     Parser,
 };
 use pest_derive::Parser;
-use crate::runtime::Value;
 
 #[derive(Parser)]
 #[grammar = "leibniz.pest"]
@@ -154,7 +153,7 @@ fn parse_number(number: Pair<Rule>) -> ParserNode {
         return ParserNode::Number(1.0, true);
     }
 
-    let imaginary = num.ends_with("i");
+    let imaginary = num.ends_with('i');
     let num_str = if imaginary {
         &num[0..num.len() - 1]
     } else {
@@ -187,7 +186,7 @@ fn parse_array(array: Pair<Rule>) -> ParserNode {
 
     let expressions = pairs.into_iter()
         .filter(|pair| pair.as_rule() == Rule::expression)
-        .map(|pair| parse_expression(pair))
+        .map(parse_expression)
         .collect();
 
     ParserNode::Array(expressions)
@@ -299,7 +298,7 @@ fn parse_func_call(func_call: Pair<Rule>) -> ParserNode {
         .clone()
         .into_inner()
         .filter(|pair| pair.as_rule() == Rule::expression)
-        .map(|pair| parse_expression(pair))
+        .map(parse_expression)
         .collect();
 
     ParserNode::FunctionCall(func_name, arguments)
@@ -423,7 +422,7 @@ fn get_error_message(input: &str, error: Error<Rule>) -> String {
     };
 
     let highlight = " ".repeat(error_pos.1 - 1) + "^";
-    let line = input.split("\n").collect::<Vec<&str>>()[error_pos.0 - 1];
+    let line = input.split('\n').collect::<Vec<&str>>()[error_pos.0 - 1];
     format!(
         "({}, {}): {}\n--> {}\n    {}",
         error_pos.0, error_pos.1, error_msg, line, highlight

@@ -133,7 +133,7 @@ impl ops::Div<Value> for Value {
                 Custom(_, _) => Err("cannot divide an array by a custom value".into())
             },
             Custom(_, _) => match rhs {
-                Number(c2) => Err("cannot divide a custom value by a number".into()),
+                Number(_) => Err("cannot divide a custom value by a number".into()),
                 Array(_) => Err("cannot divide a custom value by an array".into()),
                 Custom(_, _) => Err("cannot divide a custom value by a custom value".into())
             }
@@ -172,13 +172,19 @@ impl Value {
         match self {
             Number(c) => match rhs {
                 Number(c2) => {
-                    if c.im == 0.0 && c.re == 0.0 {
-                        Ok(Value::real(0.0))
+                    let mut num = if c.im == 0.0 && c.re == 0.0 {
+                        Complex64::new(0.0, 0.0)
                     } else if c2.im == 0.0 && c2.re == 0.0 {
-                        Ok(Value::real(1.0))
+                        Complex64::new(1.0, 0.0)
                     } else {
-                        Ok(Number(c.powc(c2)))
+                        c.powc(c2)
+                    };
+
+                    if num.im < 9e-16 {
+                        num.im = 0.0;
                     }
+
+                    Ok(Number(num))
                 }
                 Array(_) => Err("cannot raise a number to an array power".into()),
                 Custom(_, _) => Err("cannot raise a number to a custom value power".into())
@@ -381,7 +387,7 @@ impl Value {
     fn gamma(self) -> ValueOutput {
         const P: [f64; 8] = [
             676.5203681218851, -1259.1392167224028,
-            771.32342877765313, -176.61502916214059,
+            771.32342877765313f64, -176.61502916214059,
             12.507343278686905, -0.13857109526572012,
             9.9843695780195716e-6, 1.5056327351493116e-7
         ];
@@ -782,7 +788,7 @@ impl<'a> RuntimeState<'a> {
                         .collect();
 
                     for argument in evaluated_arguments.iter() {
-                        if let Err(_) = argument {
+                        if argument.is_err() {
                             return argument.clone();
                         }
                     }
@@ -792,7 +798,7 @@ impl<'a> RuntimeState<'a> {
                         .map(|argument| argument.unwrap())
                         .collect();
 
-                    return (self.builtin_functions[name].body)(&mut evaluated_arguments, &self);
+                    (self.builtin_functions[name].body)(&mut evaluated_arguments, &self)
                 }
                 else if self.functions.contains_key(name) {
                     let mut functions = self
@@ -840,7 +846,7 @@ impl<'a> RuntimeState<'a> {
 
                         self.in_function = false;
 
-                        return Ok(result);
+                        Ok(result)
                     } else {
                         unreachable!()
                     }
@@ -884,7 +890,7 @@ impl<'a> RuntimeState<'a> {
                             return Err(format!("'{}' does not have a component '{}'", type_name, name));
                         }
 
-                        return Ok(values[*name].clone());
+                        Ok(values[*name].clone())
                     }
                     else {
                         Err(format!("accessor function '{}' expects a custom value", name))
@@ -1046,9 +1052,9 @@ impl<'a> RuntimeState<'a> {
                         factorial *= n;
                     }
 
-                    return Ok(Value::real(factorial as f64));
+                    Ok(Value::real(factorial as f64))
                 } else if c.re == 0.0 && c.im == 0.0 {
-                    return Ok(Value::real(1.0));
+                    Ok(Value::real(1.0))
                 } else {
                     Value::Number(c + 1.0).gamma()
                 }
@@ -1067,7 +1073,7 @@ impl<'a> RuntimeState<'a> {
                         let mut last_evaluated = Value::real(0.0);
                         let mut new_locals = Vec::new();
 
-                        for node in nodes.into_iter() {
+                        for node in nodes.iter() {
                             last_evaluated = self.evaluate(node)?;
 
                             if let ParserNode::VariableDeclaration(name, _) = node {
@@ -1081,7 +1087,7 @@ impl<'a> RuntimeState<'a> {
                             self.remove_local(local);
                         }
 
-                        return Ok(last_evaluated);
+                        Ok(last_evaluated)
                     }
                 }
             },

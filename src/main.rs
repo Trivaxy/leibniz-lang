@@ -13,7 +13,7 @@ use time::{Duration, Instant};
 mod parser;
 mod runtime;
 
-const PRELUDE: &'static str = include_str!("lbstandard.lbz");
+const PRELUDE: &str = include_str!("lbstandard.lbz");
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();
@@ -31,7 +31,13 @@ fn main() {
     };
 
     let filename = &args[1];
-    let file = fs::read_to_string(filename).expect("something went wrong reading the file");
+    let file = match fs::read_to_string(filename) {
+        Ok(string) => string,
+        Err(_) => {
+            println!("something went wrong reading the file: {}", filename);
+            return;
+        }
+    };
 
     let parsed_file = match parser::parse_leibniz_file(&file) {
         Ok(ast) => ast,
