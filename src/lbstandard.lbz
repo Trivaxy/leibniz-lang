@@ -9,10 +9,14 @@ let rotvec(v, r) = {
     vec(x(v) * c - y(v) * s, x(v) * s + y(v) * c)
 }
 
-let dot(x, y) = x(x) * x(y) + y(x) * y(y)
-
 let ncr(n, r) = n! / ((n-r)! * r!)
 
 let rep(a, x, v) = ins(rm(a, x), x, v)
 
 let abs(x) = x < 0 => -x | x
+
+let vec2 = <x~real, y~real>
+
+let dot(v1, v2) = x(v1) * x(v2) + y(v1) * y(v2)
+
+let mag(v) = (x(v)^2 + y(v)^2)^0.5
