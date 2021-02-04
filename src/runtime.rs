@@ -568,31 +568,12 @@ impl<'a> RuntimeState<'a> {
         );
 
         self.add_builtin(
-            "println",
-            BuiltinFunction::new(1, |params, _| {
-                println!("{}", params[0]);
-                Ok(params[0].clone())
-            }),
-        );
-
-        self.add_builtin(
             "print",
             BuiltinFunction::new(1, |params, _| {
 
                 print!("{}", params[0]);
                 Ok(params[0].clone())
             }),
-        );
-
-        self.add_builtin(
-            "printe",
-            BuiltinFunction::new(1, |params, _| {
-                let n =
-                    params[0].expect_real("expected real number in printe(x)")? as usize;
-
-                print!("{}", " ".repeat(n));
-                Ok(params[0].clone())
-            })
         );
 
         self.add_builtin(
