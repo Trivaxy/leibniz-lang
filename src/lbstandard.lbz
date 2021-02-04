@@ -20,3 +20,12 @@ let vec2 = <x~real, y~real>
 let dot(v1, v2) = x(v1) * x(v2) + y(v1) * y(v2)
 
 let mag(v) = (x(v)^2 + y(v)^2)^0.5
+
+let norm(v) = vec2(y(v), -x(v))
+
+let norm270(v) = vec2(-y(v), x(v))
+
+let normalize(v) = {
+    let length = mag(v)
+    vec2(x(v) / length, y(v) / length)
+}
