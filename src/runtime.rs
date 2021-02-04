@@ -20,9 +20,24 @@ impl PartialEq for Value {
         match self {
             Number(n) => match other {
                 Number(n2) => n.re == n2.re && n.im == n2.im,
-                _ => false,
+                _ => false
             },
-            Array(_) => false,
+            Array(arr) => match other {
+                Array(arr2) => {
+                    if arr.len() != arr2.len() {
+                        return false;
+                    }
+
+                    for i in 0..arr.len() {
+                        if arr[i] != arr2[i] {
+                            return false;
+                        }
+                    }
+
+                    true
+                },
+                _ => false
+            },
             Custom(name, values) => match other {
                 Custom(other_name, other_values) => {
                     if name != other_name {
@@ -797,6 +812,8 @@ impl<'a> RuntimeState<'a> {
                         .into_iter()
                         .map(|argument| argument.unwrap())
                         .collect();
+
+                    self.in_function = false;
 
                     (self.builtin_functions[name].body)(&mut evaluated_arguments, &self)
                 }
