@@ -5,12 +5,35 @@ use Value::*;
 use std::time::Instant;
 use std::collections::HashSet;
 use linked_hash_map::LinkedHashMap;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub enum Value {
     Number(Complex64),
     Array(Vec<Value>),
     Custom(String, LinkedHashMap<String, Value>)
+}
+
+#[derive(Debug, Clone)]
+pub enum TypeConstraint<'a> {
+    Real,
+    Imaginary,
+    Complex,
+    Integer,
+    Natural,
+    Array,
+    Custom(&'a str)
+}
+
+impl Display for TypeConstraint<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let str = match self {
+            TypeConstraint::Custom(name) => (*name).to_owned(),
+            _ => format!("{:?}", self).to_lowercase()
+        };
+
+        write!(f, "{}", str)
+    }
 }
 
 type ValueOutput = Result<Value, String>;
@@ -353,6 +376,62 @@ impl Value {
         }
     }
 
+    fn is_real(&self) -> bool {
+        match self {
+            Number(c) => c.im == 0.0,
+            _ => false,
+        }
+    }
+
+    fn is_imaginary(&self) -> bool {
+        match self {
+            Number(c) => c.re == 0.0,
+            _ => false,
+        }
+    }
+
+    fn is_complex(&self) -> bool {
+        match self {
+            Number(_) => true,
+            _ => false
+        }
+    }
+
+    fn is_integer(&self) -> bool {
+        match self {
+            Number(c) => c.im == 0.0 && c.re.fract() == 0.0,
+            _ => false
+        }
+    }
+
+    fn is_natural(&self) -> bool {
+        match self {
+            Number(c) => c.im == 0.0 && c.re.fract() == 0.0 && c.re > 0.0,
+            _ => false
+        }
+    }
+
+    fn is_whole(&self) -> bool {
+        match self {
+            Number(c) => c.im == 0.0 && c.re.fract() == 0.0 && c.re >= 0.0,
+            _ => false
+        }
+    }
+
+    fn is_array(&self) -> bool {
+        match self {
+            Array(_) => true,
+            _ => false
+        }
+    }
+
+    fn is_type(&self, type_name: &str) -> bool {
+        match self {
+            Custom(name, _) => name == type_name,
+            _ => false,
+        }
+    }
+
     fn expect_complex<'a>(&self, message: &'a str) -> Result<Complex64, &'a str> {
         match self {
             Number(c) => Ok(*c),
@@ -422,6 +501,18 @@ impl Value {
 
             let t = c + (P.len() as f64) - 0.5;
             Ok(Value::Number((2.0 * pi).sqrt() * t.powc(c + 0.5) * (-t).exp() * x))
+        }
+    }
+
+    fn satisfies_constraint(&self, constraint: &TypeConstraint) -> bool {
+        match constraint {
+            TypeConstraint::Real => self.is_real(),
+            TypeConstraint::Imaginary => self.is_imaginary(),
+            TypeConstraint::Complex => self.is_complex(),
+            TypeConstraint::Integer => self.is_integer(),
+            TypeConstraint::Natural => self.is_natural(),
+            TypeConstraint::Array => self.is_array(),
+            TypeConstraint::Custom(name) => self.is_type(name)
         }
     }
 }
@@ -494,7 +585,7 @@ struct RuntimeState<'a> {
     functions: HashMap<&'a str, &'a ParserNode<'a>>,
     builtin_functions: HashMap<&'a str, BuiltinFunction>,
     access_functions: HashSet<&'a str>,
-    types: HashMap<&'a str, Vec<(&'a str, &'a str)>>,
+    types: HashMap<&'a str, Vec<(&'a str, TypeConstraint<'a>)>>,
     in_function: bool,
     start_instant: Instant
 }
@@ -516,6 +607,9 @@ impl<'a> RuntimeState<'a> {
     fn add_default_globals_and_functions(&mut self) {
         self.add_global("pi", Value::real(std::f64::consts::PI));
         self.add_global("e", Value::real(std::f64::consts::E));
+        self.add_global("tau", Value::real(std::f64::consts::TAU));
+        self.add_global("rad2", Value::real(std::f64::consts::SQRT_2));
+        self.add_global("gr", Value::real(1.618033988749895));
 
         self.add_builtin(
             "sin",
@@ -713,7 +807,7 @@ impl<'a> RuntimeState<'a> {
         self.functions.contains_key(name) || self.builtin_functions.contains_key(name)
     }
 
-    fn add_type(&mut self, name: &'a str, type_constraints: Vec<(&'a str, &'a str)>) {
+    fn add_type(&mut self, name: &'a str, type_constraints: Vec<(&'a str, TypeConstraint<'a>)>) {
         self.types.insert(name, type_constraints);
     }
 
@@ -867,9 +961,19 @@ impl<'a> RuntimeState<'a> {
                         evaluated_arguments.push(self.evaluate(node)?);
                     }
 
+                    for i in 0..len {
+                        if !evaluated_arguments[i].satisfies_constraint(&self.types[name][i].1) {
+                            return Err(format!(
+                                "argument {} in {} must be {}",
+                                self.types[name][i].0,
+                                name,
+                                self.types[name][i].1
+                            ))
+                        }
+                    }
+
                     let mut hashmap_values = LinkedHashMap::new();
 
-                    // TODO: type checking
                     for i in 0..len {
                         hashmap_values.insert(self.types[name][i].0.into(), evaluated_arguments[i].clone());
                     }
@@ -921,7 +1025,7 @@ impl<'a> RuntimeState<'a> {
 
                 Ok(Value::real(0.0))
             }
-            ParserNode::TypeDeclaration(name, fields) => {
+            ParserNode::TypeDeclaration(name, properties) => {
                 if self.has_type(name) {
                     return Err(format!{
                         "redeclared a type that already is defined: {}",
@@ -936,9 +1040,9 @@ impl<'a> RuntimeState<'a> {
                     });
                 }
 
-                self.add_type(name, fields.clone());
+                self.add_type(name, properties.clone().to_vec());
 
-                for (key, _) in fields {
+                for (key, _) in properties {
                     self.add_access_function(key);
                 }
 

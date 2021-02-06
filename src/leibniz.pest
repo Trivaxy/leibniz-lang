@@ -49,8 +49,8 @@ func_decl = { letk ~ identifier ~ param_list ~ equals ~ expression_or_tree }
 
 var_decl = { letk ~ identifier ~ equals ~ expression_or_tree }
 
-type_constr = { identifier ~ tilde ~ identifier }
-type_decl = { letk ~ identifier ~ equals ~ lst ~ type_constr ~ (comma ~ type_constr)* ~ grt }
+param = { identifier ~ (tilde ~ identifier)? }
+type_decl = { letk ~ identifier ~ equals ~ lst ~ param ~ (comma ~ param)* ~ grt }
 
 assignment = { identifier ~ equals ~ (identifier ~ equals)* ~ expression_or_tree }
 

@@ -1,14 +1,11 @@
 # Leibniz
 Leibniz is an interpreted but experimental programming language revolving around mathematics.
-Writing Leibniz should feel natural, and the language itself is very simple. Currently, the parser and runtime are only ~1.3k LOC.
+Writing Leibniz should feel natural, and the language itself is very simple. Currently, the parser and runtime are only ~1.5k LOC.
 
 # Quick tutorial
 Got 10 minutes to spare? This'll make you master the language. Yes, it's that simple.
 
-Leibniz currently has three data types, until the rest are implemented:
-- `Number`: The most basic data type. It's a complex number with double-precision real and imaginary components. Leibniz makes the distinction between real and complex numbers depending on whether or not there is an imaginary component.
-- `Vector`: As the name implies, it's a vector, which is a pair of two `Number`s that must be real.
-- `Array`: A collection of different values. Arrays are not limited to storing only one data type.
+Leibniz is fundamentally about mathematics, and it tries to stay as close to normal mathematical notation as possible (for a programming language, that is).
 
 Almost everything in Leibniz is an expression (the exception being declarations of functions and variables).
 
@@ -171,30 +168,14 @@ p: [0..10, 3] => p
 ```
 evaluates to `28`. This is because rather than overstepping the over `10` bound (and in turn evaluating `0 + 3 + 6 + 9 + 12`) it will short circuit the last step into the upper bound, so `0 + 3 + 6 + 9 + 10` is evaluated instead. This implementation detail is subject to change in the future.
 
-Let's move on to Leibniz's second data type, `Vector`.
-
-Creating a vector is possible through the builtin `vec` function Leibniz provides. It takes an `x` and `y` component for the vector.
-```rust
-let myvec = vec(2, 5)
-```
-
-`Vector`s can be multiplied, divided and raised to the power of `RealNumber`s. Other operations regarding them are not valid, thus the standard library (heavy WIP) offers functions that help with manipulating and working with vectors.
-
-You can access the x and y component of a `Vector` through the builtin `x` and `y` functions. Each return the respective component of the `Vector`.
-```rust
-let myvec = vec(2, 5) // (2, 5)
-x(myvec) // 2
-y(myvec) // 5
-```
-
-Leibniz's third data type is the `Array`. Their syntax is extremely similar to other languages.
+Leibniz's second data type is the `Array`. Their syntax is extremely similar to other languages.
 ```rust
 [3, 9, 10, 5] // An array containing 4 real numbers
 ```
 
 Arrays are not limited to just one data type:
 ```rust
-[3, 10.52, 5i, (9 + 20i)^0.5, vec(20, 9.5)]
+[3, 10.52, 5i, (9 + 20i)^0.5, vec2(20, 9.5)]
 [[0, 0.5, 0.744], [9, 20i, [0, 0], 4]] // An array containing arrays
 ```
 
@@ -206,7 +187,7 @@ let y = x[0] // 5
 let z = y + x[1] // 5 + 9i
 ```
 
-You can add an element to the end of an array by adding other values to it:
+You can append an element to the end of an array by adding a value to it:
 ```rust
 let x = [0, 20, 5.2]
 x = x + 5 // [0, 20, 5.2, 5]
@@ -251,13 +232,94 @@ let x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 z: [0..len(x) - 1, 1] => (x[z] % 2) == 0 => x[z] | 0  // 30
 ```
 
+Leibniz allows you to define your own custom value types. Let's say, for example, that we want to define a circle.
+A circle has a radius, so we'll start from there.
+```rust
+let circle = <radius~real>
+```
+
+This defines a circle as a value with a `radius` property, which must be a `real` number. We can create a circle like so:
+```rust
+let mycircle = circle(5) // this will make us a circle with radius 5
+```
+
+We can get the radius of our circle like this:
+```rust
+radius(mycircle) // 5
+```
+
+It'd be nice if we gave our circle a position as well on the XY plane. Let's update our definition of a circle:
+```rust
+let circle = <radius~real, x~real, y~real>
+```
+Now our circle has three properties: `radius`, `x` and `y`, all of which must be real numbers.
+
+Let's recreate our circle variable.
+```rust
+let mycircle = circle(5, 10, -2.5)
+```
+
+Like before, we can get the properties of our circle like this:
+```rust
+radius(mycircle) // 5
+x(mycircle) // 10
+y(mycircle) // -2.5
+```
+
+Great, we have a circle, but let's give it some practical purpose. How about an area and circumference? Those should be functions.
+```rust
+let area(c~circle) = pi * radius(c)^2
+
+let circumf(c~circle) = 2 * pi * radius(c)
+```
+
+You can see some new syntax in our functions here. `c~circle` indicates that the parameter `c` must be a `circle`. If this type bound is omitted, then by default the bound is `real`, which means we can rewrite our circle definition like so:
+```rust
+let circle = <radius, x, y>
+```
+
+Did you know Leibniz's standard library has a custom value type `vec2`? Its definition is extremely simple.
+```rust
+let vec2 = <x, y>
+```
+
+Let's put that into our circle definition, and recreate our circle variable.
+```rust
+let circle = <radius, pos~vec2>
+
+let mycircle = circle(5, vec2(10, -2.5))
+print(mycircle) // circle <radius: 5, pos: vec2 <x: 10, y: 10>>
+```
+
+Creating type definitions lets you group properties together to represent concepts very nicely.
+The built-in type bounds are:
+- `real`: Any real number
+- `imaginary`: Any imaginary number
+- `complex`: Any number
+- `integer`: Any real integer number
+- `natural`: Any real natural number
+- `whole`: Any whole number
+- `array`: Any array
+- `any`: Any value
+
+There is another thing about Leibniz that you should know, and it's that values do not have a unique identity. This means that things with the same value will truly be equal.
+```rust
+5 == 5 // 1
+5 == 5.0 // 1
+(5 - 9i) == (-9i + 5) // 1
+[1, 2, 3, 4] == [1, 2, 3, 4] // 1
+[1, 2, 3, 4] == [4, 3, 2, 1] // 0
+[] == [] // 1
+vec2(10, 5) == vec2(10, 5) // 1
+vec2(9, 3) == vec2(2, -7) // 0
+circle(5, vec2(2, 3)) == circle(5, vec2(2, 3)) // 1
+```
+
 # Miscellaneous functions
 - `mem(x)` where `x` is any value. Returns the memory usage of the value in bytes
 - `clock(x)` where `x` is any real number. Returns the total time elapsed in seconds since the Leibniz script began executing, subtracted by `x`
 
 # Todo
-Leibniz still has a lot to be done.
-- Implement the rest of Leibniz types, plus the ability to create custom types
 - Make the interpreter optimize Leibniz code
 - Work on the Leibniz standard library
 - Make it possible to create graphical interactions using Leibniz

@@ -15,7 +15,7 @@ let rep(a, x, v) = ins(rm(a, x), x, v)
 
 let abs(x) = x < 0 => -x | x
 
-let vec2 = <x~real, y~real>
+let vec2 = <x, y>
 
 let dot(v1, v2) = x(v1) * x(v2) + y(v1) * y(v2)
 

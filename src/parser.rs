@@ -7,6 +7,7 @@ use pest::{
     Parser,
 };
 use pest_derive::Parser;
+use crate::runtime::TypeConstraint;
 
 #[derive(Parser)]
 #[grammar = "leibniz.pest"]
@@ -41,7 +42,7 @@ pub enum ParserNode<'a> {
     FunctionCall(&'a str, Vec<ParserNode<'a>>), // a function call with an array of expressions as arguments
     Conditional(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // a conditional with a predicate, true expression and false expression
     FunctionDeclaration(&'a str, Vec<&'a str>, InnerNode<'a>),
-    TypeDeclaration(&'a str, Vec<(&'a str, &'a str)>),
+    TypeDeclaration(&'a str, Vec<(&'a str, TypeConstraint<'a>)>),
     VariableDeclaration(&'a str, InnerNode<'a>),
     Range(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // any range with a lower bound, upper bound and a step
     Array(Vec<ParserNode<'a>>), // an array full of expressions
@@ -252,16 +253,36 @@ fn parse_type_decl(declaration: Pair<Rule>) -> ParserNode {
 
     let type_name = pairs[0].as_str();
 
-    let type_constraints = pairs
+    let properties = pairs
         .iter()
-        .filter(|pair| pair.as_rule() == Rule::type_constr)
-        .map(|pair| {
-            let inner_pairs = pairs_to_vec(pair.clone());
-            (inner_pairs[0].as_str(), inner_pairs[2].as_str())
-        })
+        .filter(|pair| pair.as_rule() == Rule::param)
+        .map(|pair| parse_param(pair.clone()))
         .collect();
 
-    ParserNode::TypeDeclaration(type_name, type_constraints)
+    ParserNode::TypeDeclaration(type_name, properties)
+}
+
+fn parse_param(constraint: Pair<Rule>) -> (&str, TypeConstraint) {
+    let pairs = pairs_to_vec(constraint);
+
+    let name = pairs[0].as_str();
+
+    let constraint = match pairs.len() {
+        3 => pairs[2].as_str(),
+        _ => "real"
+    };
+
+    let constraint = match constraint {
+        "real" => TypeConstraint::Real,
+        "imaginary" => TypeConstraint::Imaginary,
+        "complex" => TypeConstraint::Complex,
+        "integer" => TypeConstraint::Integer,
+        "natural" => TypeConstraint::Natural,
+        "array" => TypeConstraint::Array,
+        _ => TypeConstraint::Custom(constraint)
+    };
+
+    (name, constraint)
 }
 
 fn parse_var_decl(declaration: Pair<Rule>) -> ParserNode {
