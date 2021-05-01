@@ -7,7 +7,6 @@ use pest::{
     Parser,
 };
 use pest_derive::Parser;
-use crate::runtime::TypeConstraint;
 
 #[derive(Parser)]
 #[grammar = "leibniz.pest"]
@@ -28,38 +27,59 @@ pub enum Operator {
     LessThanOrEquals,
 }
 
-type InnerNode<'a> = Box<ParserNode<'a>>;
+#[derive(Debug, Clone)]
+pub enum TypeConstraint {
+    Real,
+    Imaginary,
+    Complex,
+    Integer,
+    Natural,
+    Array,
+    Custom(String),
+}
+
+type InnerNode = Box<ParserNode>;
 
 // represents a node in the AST which the parser can construct.
 // leibniz's grammar is defined in leibniz.pest, from which the parser is generated from.
 // this enum acts as a mapping between that grammar and rust code
 #[derive(Debug)]
-pub enum ParserNode<'a> {
-    Number(f64, bool),   // any number, either real or imaginary
-    Identifier(&'a str), // any identifier, such as a variable name, function name, etc
-    Operation(InnerNode<'a>, Operator, InnerNode<'a>), // an arithmetic operation with a left and right hand side
-    Assignment(Vec<&'a str>, InnerNode<'a>), // re-assigning (possibly multiple) variables to a value
-    FunctionCall(&'a str, Vec<ParserNode<'a>>), // a function call with an array of expressions as arguments
-    Conditional(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // a conditional with a predicate, true expression and false expression
-    FunctionDeclaration(&'a str, Vec<&'a str>, InnerNode<'a>),
-    TypeDeclaration(&'a str, Vec<(&'a str, TypeConstraint<'a>)>),
-    VariableDeclaration(&'a str, InnerNode<'a>),
-    Range(InnerNode<'a>, InnerNode<'a>, InnerNode<'a>), // any range with a lower bound, upper bound and a step
-    Array(Vec<ParserNode<'a>>), // an array full of expressions
-    Index(InnerNode<'a>, InnerNode<'a>),
-    Loop(&'a str, InnerNode<'a>, InnerNode<'a>), // a loop construct that works on ranges and a named parameter
-    Factorial(InnerNode<'a>),                    // factorial of an expression
-    Tree(Vec<ParserNode<'a>>),                   // a tree of nodes
+pub enum ParserNode {
+    Number(f64, bool),                         // any number, either real or imaginary
+    Identifier(String), // any identifier, such as a variable name, function name, etc
+    Operation(InnerNode, Operator, InnerNode), // an arithmetic operation with a left and right hand side
+    Assignment(Vec<String>, InnerNode), // re-assigning (possibly multiple) variables to a value
+    FunctionCall(String, Vec<ParserNode>), // a function call with an array of expressions as arguments
+    Conditional(InnerNode, InnerNode, InnerNode), // a conditional with a predicate, true expression and false expression
+    FunctionDeclaration(String, Vec<String>, InnerNode),
+    TypeDeclaration(String, Vec<(String, TypeConstraint)>),
+    VariableDeclaration(String, InnerNode),
+    Range(InnerNode, InnerNode, InnerNode, bool), // any range with a lower bound, upper bound and a step plus an indication to what direction it is
+    Array(Vec<ParserNode>),                       // an array full of expressions
+    Index(InnerNode, InnerNode),
+    Loop(String, InnerNode, InnerNode), // a loop construct that works on ranges and a named parameter
+    Factorial(InnerNode),               // factorial of an expression
+    Access(InnerNode, String),          // accessing an expression's field
+    Tree(Vec<ParserNode>),              // a tree of nodes
 }
 
-impl<'a> ParserNode<'a> {
-    pub fn append_tree(&mut self, new_nodes: ParserNode<'a>) {
+impl ParserNode {
+    pub fn append_tree(&mut self, new_nodes: ParserNode) {
         if let ParserNode::Tree(nodes) = self {
             if let ParserNode::Tree(mut new_nodes) = new_nodes {
                 nodes.append(&mut new_nodes);
             }
         } else {
             panic!("tried to append nodes to a non-tree node");
+        }
+    }
+
+    pub fn destructure_range(self) -> (ParserNode, ParserNode, ParserNode, bool) {
+        match self {
+            ParserNode::Range(lower_bound, upper_bound, step, going_down) => {
+                (*lower_bound, *upper_bound, *step, going_down)
+            }
+            _ => panic!("failed to destructure range node. this should never happen"),
         }
     }
 }
@@ -117,7 +137,10 @@ fn parse_value(value: Pair<Rule>) -> ParserNode {
 
         if pair.as_rule() == Rule::index {
             let index_pairs = pairs_to_vec(pair.clone());
-            left_val = ParserNode::Index(Box::new(left_val), Box::new(parse_expression(index_pairs[1].clone())));
+            left_val = ParserNode::Index(
+                Box::new(left_val),
+                Box::new(parse_expression(index_pairs[1].clone())),
+            );
             dropoff += 1;
         } else {
             break;
@@ -143,8 +166,29 @@ fn parse_value(value: Pair<Rule>) -> ParserNode {
         return left_val;
     }
 
-    let right_val = parse_value(pairs[dropoff + 1].clone());
-    ParserNode::Operation(Box::new(left_val), Operator::Power, Box::new(right_val))
+    let mut value = if pairs[dropoff].as_rule() == Rule::pow {
+        let val_at = dropoff + 1;
+        dropoff += 2;
+
+        ParserNode::Operation(
+            Box::new(left_val),
+            Operator::Power,
+            Box::new(parse_value(pairs[val_at].clone())),
+        )
+    } else {
+        left_val
+    };
+
+    if dropoff >= pairs.len() {
+        return value;
+    }
+
+    let accesses = &pairs[dropoff..];
+    for access in accesses {
+        value = ParserNode::Access(Box::new(value), access.as_str().to_string());
+    }
+
+    value
 }
 
 fn parse_number(number: Pair<Rule>) -> ParserNode {
@@ -165,7 +209,7 @@ fn parse_number(number: Pair<Rule>) -> ParserNode {
 }
 
 fn parse_identifier(identifier: Pair<Rule>) -> ParserNode {
-    ParserNode::Identifier(identifier.as_str())
+    ParserNode::Identifier(identifier.as_str().to_owned())
 }
 
 fn parse_term(term: Pair<Rule>) -> ParserNode {
@@ -185,7 +229,8 @@ fn parse_term(term: Pair<Rule>) -> ParserNode {
 fn parse_array(array: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(array);
 
-    let expressions = pairs.into_iter()
+    let expressions = pairs
+        .into_iter()
         .filter(|pair| pair.as_rule() == Rule::expression)
         .map(parse_expression)
         .collect();
@@ -240,7 +285,7 @@ fn parse_assignment(assignment: Pair<Rule>) -> ParserNode {
     let identifiers = pairs
         .iter()
         .filter(|pair| pair.as_rule() == Rule::identifier)
-        .map(|pair| pair.as_str())
+        .map(|pair| pair.as_str().to_owned())
         .collect();
 
     let expression = parse_expression(pairs.last().unwrap().clone());
@@ -259,17 +304,17 @@ fn parse_type_decl(declaration: Pair<Rule>) -> ParserNode {
         .map(|pair| parse_param(pair.clone()))
         .collect();
 
-    ParserNode::TypeDeclaration(type_name, properties)
+    ParserNode::TypeDeclaration(type_name.to_owned(), properties)
 }
 
-fn parse_param(constraint: Pair<Rule>) -> (&str, TypeConstraint) {
+fn parse_param(constraint: Pair<Rule>) -> (String, TypeConstraint) {
     let pairs = pairs_to_vec(constraint);
 
-    let name = pairs[0].as_str();
+    let name = pairs[0].as_str().to_owned();
 
     let constraint = match pairs.len() {
         3 => pairs[2].as_str(),
-        _ => "real"
+        _ => "real",
     };
 
     let constraint = match constraint {
@@ -279,8 +324,9 @@ fn parse_param(constraint: Pair<Rule>) -> (&str, TypeConstraint) {
         "integer" => TypeConstraint::Integer,
         "natural" => TypeConstraint::Natural,
         "array" => TypeConstraint::Array,
-        _ => TypeConstraint::Custom(constraint)
-    };
+        _ => TypeConstraint::Custom(constraint.to_owned()),
+    }
+    .to_owned();
 
     (name, constraint)
 }
@@ -289,24 +335,24 @@ fn parse_var_decl(declaration: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(declaration);
 
     ParserNode::VariableDeclaration(
-        pairs[0].as_str(),
+        pairs[0].as_str().to_owned(),
         Box::new(parse_tree_or_expression(pairs[2].clone())),
     )
 }
 
-fn parse_param_list(param_list: Pair<Rule>) -> Vec<&str> {
+fn parse_param_list(param_list: Pair<Rule>) -> Vec<String> {
     param_list
         .into_inner()
         .filter(|pair| pair.as_rule() == Rule::identifier)
-        .map(|pair| pair.as_str())
-        .collect::<Vec<&str>>()
+        .map(|pair| pair.as_str().to_owned())
+        .collect::<Vec<String>>()
 }
 
 fn parse_func_decl(declaration: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(declaration);
 
     ParserNode::FunctionDeclaration(
-        pairs[0].as_str(),
+        pairs[0].as_str().to_owned(),
         parse_param_list(pairs[1].clone()),
         Box::new(parse_tree_or_expression(pairs[3].clone())),
     )
@@ -322,7 +368,7 @@ fn parse_func_call(func_call: Pair<Rule>) -> ParserNode {
         .map(parse_expression)
         .collect();
 
-    ParserNode::FunctionCall(func_name, arguments)
+    ParserNode::FunctionCall(func_name.to_owned(), arguments)
 }
 
 fn parse_tree_or_expression(tree: Pair<Rule>) -> ParserNode {
@@ -344,7 +390,7 @@ fn parse_tree_or_expression(tree: Pair<Rule>) -> ParserNode {
     ParserNode::Tree(nodes)
 }
 
-fn parse_conditional<'a>(conditional: Pair<'a, Rule>, predicate: ParserNode<'a>) -> ParserNode<'a> {
+fn parse_conditional<'a>(conditional: Pair<'a, Rule>, predicate: ParserNode) -> ParserNode {
     let pairs = pairs_to_vec(conditional);
     let true_branch = parse_tree_or_expression(pairs[0].clone());
     let false_branch = parse_tree_or_expression(pairs[2].clone());
@@ -361,16 +407,31 @@ fn parse_loop(rloop: Pair<Rule>) -> ParserNode {
     let range = parse_range(pairs[1].clone());
     let expression = parse_tree_or_expression(pairs[2].clone());
 
-    ParserNode::Loop(pairs[0].as_str(), Box::new(range), Box::new(expression))
+    ParserNode::Loop(
+        pairs[0].as_str().to_owned(),
+        Box::new(range),
+        Box::new(expression),
+    )
 }
 
 fn parse_range(range: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(range);
     let lower_bound = parse_expression(pairs[1].clone());
     let upper_bound = parse_expression(pairs[3].clone());
-    let step = parse_expression(pairs[5].clone());
+    let going_down = pairs[5].as_rule() == Rule::sub;
 
-    ParserNode::Range(Box::new(lower_bound), Box::new(upper_bound), Box::new(step))
+    let step = if going_down {
+        parse_expression(pairs[6].clone())
+    } else {
+        parse_expression(pairs[5].clone())
+    };
+
+    ParserNode::Range(
+        Box::new(lower_bound),
+        Box::new(upper_bound),
+        Box::new(step),
+        going_down,
+    )
 }
 
 fn parse_action(action: Pair<Rule>) -> ParserNode {

@@ -1,14 +1,5 @@
-[package]
-name = "leibniz"
-version = "0.1.0"
-authors = ["Trivaxy"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-pest = "2"
-pest_derive = "2"
-num-complex = "0.3"
-glium = "0.28"
-linked-hash-map = "0.5"
+[workspace]
+members = [
+    "parser",
+    "runtime"
+]

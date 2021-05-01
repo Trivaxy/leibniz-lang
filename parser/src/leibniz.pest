@@ -21,6 +21,7 @@ rcurlb = { "}" }
 lsquarb = { "[" }
 rsquarb = { "]" }
 rarrow = _{ "=>" }
+accessop = _{ "->" }
 bar = { "|" }
 fact = { "!" }
 tilde = { "~" }
@@ -37,7 +38,7 @@ high_prec_op = _{ (mul | div | abs | grt | lst | gre | lse | eqequals) }
 arg_list = { lparen ~ (expression ~ comma)* ~ expression? ~ rparen }
 func_call = { identifier ~ arg_list }
 
-value = { ((rloop | func_call | parens | number | identifier | array) ~ index* ~ fact* ~ (pow ~ value)*) }
+value = { ((rloop | func_call | parens | number | identifier | array) ~ index* ~ fact* ~ (pow ~ value)*) ~ (accessop ~ identifier)* }
 term = { value ~ (high_prec_op ~ term)* }
 parens = _{ lparen ~ expression ~ rparen }
 
@@ -60,7 +61,7 @@ expression_or_tree = _{ (tree | expression) }
 conditional = { rarrow ~ expression_or_tree ~ bar ~ expression_or_tree }
 
 rloop = { identifier ~ ":" ~ range ~ rarrow ~ expression_or_tree }
-range = { lsquarb ~ expression ~ dotdot ~ expression ~ comma ~ expression ~ rsquarb }
+range = { lsquarb ~ expression ~ dotdot ~ expression ~ comma ~ sub? ~ expression ~ rsquarb }
 
 action = _{
     func_decl

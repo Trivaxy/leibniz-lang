@@ -14,17 +14,6 @@ pub enum Value {
     Custom(String, LinkedHashMap<String, Value>)
 }
 
-#[derive(Debug, Clone)]
-pub enum TypeConstraint<'a> {
-    Real,
-    Imaginary,
-    Complex,
-    Integer,
-    Natural,
-    Array,
-    Custom(&'a str)
-}
-
 impl Display for TypeConstraint<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let str = match self {
@@ -665,7 +654,7 @@ impl<'a> RuntimeState<'a> {
             "print",
             BuiltinFunction::new(1, |params, _| {
 
-                print!("{}", params[0]);
+                println!("{}", params[0]);
                 Ok(params[0].clone())
             }),
         );
@@ -1091,29 +1080,16 @@ impl<'a> RuntimeState<'a> {
                     let mut sum = Value::real(0.0);
 
                     if first_bound < second_bound {
-                        while x < second_bound {
+                        while x <= second_bound {
                             self.add_local(parameter, Value::real(x));
                             sum = (sum + self.evaluate(&*body)?)?;
-                            x = if x + step < second_bound {
-                                x + step
-                            } else {
-                                self.add_local(parameter, Value::real(second_bound));
-                                sum = (sum + self.evaluate(&*body)?)?;
-                                break;
-                            };
+                            x += step;
                         }
                     } else {
-                        while x > second_bound {
+                        while x >= second_bound {
                             self.add_local(parameter, Value::real(x));
                             sum = (sum + self.evaluate(&*body)?)?;
-
-                            x = if x - step > second_bound {
-                                x - step
-                            } else {
-                                self.add_local(parameter, Value::real(second_bound));
-                                sum = (sum + self.evaluate(&*body)?)?;
-                                break;
-                            };
+                            x -= step;
                         }
                     }
 
