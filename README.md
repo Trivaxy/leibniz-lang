@@ -1,13 +1,16 @@
 # Leibniz
-Leibniz is an interpreted but experimental programming language revolving around mathematics.
+Leibniz is an interpreted but experimental programming language revolving around ease of use and mathematics.
 Writing Leibniz should feel natural, and the language itself is very simple. Currently, the parser and runtime are only ~1.5k LOC.
+
+# Contributions
+Always welcome.
 
 # Quick tutorial
 Got 10 minutes to spare? This'll make you master the language. Yes, it's that simple.
 
-Leibniz is fundamentally about mathematics, and it tries to stay as close to normal mathematical notation as possible (for a programming language, that is).
+Leibniz is fundamentally about values, and it tries to stay as close to normal mathematical notation as possible (for a programming language, that is).
 
-Almost everything in Leibniz is an expression (the exception being declarations of functions and variables).
+Everything in Leibniz is an expression.
 
 An expression can come in many different ways. For example
 ```rust
@@ -83,7 +86,7 @@ let y = x > x + 2 // 0
 
 This can be used with Leibniz's conditional operator, `=>`, which expects a predicate (any real number), a true arm if the predicate is not zero, and a false arm if the predicate is zero. The syntax is like so:
 ```rust
-predicate_expression => true_expression | false_expression
+predicate_expression => expression_if_true | expression_if_false
 ```
 And it can be used, for example, like this:
 ```rust
@@ -126,21 +129,6 @@ let x = {
 }
 ```
 
-Keep in mind that trees *must* end with an expression, otherwise you will get an error. This means that
-```rust
-let x = {
-    let y = 9
-}
-```
-is invalid, because `let y = 9` is not an expression in Leibniz. However:
-```rust
-let x = {
-    let y = 9
-    y
-}
-```
-is valid, because `y` alone is a valid expression.
-
 Leibniz has another construct, called ranges, which can act as a looping mechanism.
 ```rust
 x: [0..10, 1] => x * 3
@@ -159,14 +147,14 @@ actually evaluates to `165`. (`0 + 3 + 6 + 9 + 12 + 15 + 18 + 21 + 24 + 27 + 30`
 
 This makes ranges almost the equivalent of the sigma notation in math, the primary difference being you can also loop from an upper bound to a lower bound, and ranges don't strictly have to be integers:
 ```rust
-z: [20..0, 0.5] => z^2 // 5535 
+z: [20..0, -0.5] => z^2 // 5535 
 ```
 
 Note: ranges will not go outside their bounds, even if the step allows it. For example:
 ```rust
 p: [0..10, 3] => p
 ```
-evaluates to `28`. This is because rather than overstepping the over `10` bound (and in turn evaluating `0 + 3 + 6 + 9 + 12`) it will short circuit the last step into the upper bound, so `0 + 3 + 6 + 9 + 10` is evaluated instead. This implementation detail is subject to change in the future.
+evaluates to `28`. This is because rather than overstepping the `10` bound (and in turn evaluating `0 + 3 + 6 + 9 + 12`) it will truncate the last step into the upper bound, so `0 + 3 + 6 + 9 + 10` is evaluated instead. This implementation detail is subject to change in the future.
 
 Leibniz's second data type is the `Array`. Their syntax is extremely similar to other languages.
 ```rust
@@ -322,6 +310,8 @@ circle(5, vec2(2, 3)) == circle(5, vec2(2, 3)) // 1
 # Todo
 - Make the interpreter optimize Leibniz code
 - Work on the Leibniz standard library
+- Implement proper error messages for parsing and runtime errors
+- Make type constraints work again
 - Make it possible to create graphical interactions using Leibniz
 - Explore the possibility of automatic derivation and integration
 
