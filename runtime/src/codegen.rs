@@ -531,7 +531,10 @@ impl CodeGen {
 
     fn remove_local(&mut self, identifier: &str) {
         if !self.has_local(identifier) {
-            panic!("tried to remove local '{}' when it didn't exist");
+            panic!(
+                "tried to remove local '{}' when it didn't exist",
+                identifier
+            );
         }
 
         self.local_table.remove(identifier);
