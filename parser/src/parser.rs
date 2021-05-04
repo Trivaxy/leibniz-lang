@@ -472,32 +472,34 @@ fn get_error_message(input: &str, error: Error<Rule>) -> String {
         LineColLocation::Pos(pos) => pos,
         LineColLocation::Span(line, col) => (line.0, col.0), // this never gets reached, anyways
     };
-
+    
     let error_msg = if let ErrorVariant::ParsingError {
         positives,
         negatives: _,
     } = error.variant
     {
-        if positives.iter().any(|rule| rule == &Rule::tree) {
-            "expected a } here"
-        } else if positives.iter().any(|rule| rule == &Rule::comma) {
-            "expected a , here"
-        } else if positives.iter().any(|rule| rule == &Rule::rsquarb) {
-            "expected a ] here"
-        } else if positives.iter().any(|rule| rule == &Rule::bar) {
-            "expected a | here"
-        } else {
-            match positives[0] {
-                Rule::value => "expected proper value",
-                Rule::identifier => "expected a variable name here",
-                Rule::expression => "expected an expression",
-                Rule::equals => "expected = here after let declaration",
-                Rule::rarrow => "expected => here",
-                Rule::lcurlb => "expected tree or expression",
-                Rule::range => "expected a range here",
-                Rule::EOI => "unknown token",
-                _ => "unexpected character",
+        if positives[0] == Rule::EOI {
+            "unexpected character here"
+        } else if positives[0] == Rule::identifier {
+            "expected an identifier here"
+        } else if positives.iter().any(|rule| *rule == Rule::comma) {
+            "expected a , or a closing delimiter here"
+        } else if positives[0] == Rule::equals {
+            if positives.len() > 1 && positives[1] == Rule::param_list {
+                "expected = here, or ( if this is a function"
+            } else {
+                "expected = here"
             }
+        } else if positives[0] == Rule::rsquarb {
+            "expected an expression or ] here"
+        } else if positives.iter().any(|rule| *rule == Rule::expression || *rule == Rule::value || *rule == Rule::file) {
+            if positives.len() > 1 {
+                "expected an expression or } here"
+            } else {
+                "expected an expression here"
+            }
+        } else {
+            "failed to create error message. this should not happen"
         }
     } else {
         unreachable!()
