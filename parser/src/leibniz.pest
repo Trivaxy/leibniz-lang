@@ -20,7 +20,7 @@ lcurlb = { "{" }
 rcurlb = { "}" }
 lsquarb = { "[" }
 rsquarb = { "]" }
-rarrow = _{ "=>" }
+rarrow = { "=>" }
 accessop = _{ "->" }
 bar = { "|" }
 fact = { "!" }

@@ -405,7 +405,7 @@ fn parse_conditional<'a>(conditional: Pair<'a, Rule>, predicate: ParserNode) -> 
 fn parse_loop(rloop: Pair<Rule>) -> ParserNode {
     let pairs = pairs_to_vec(rloop);
     let range = parse_range(pairs[1].clone());
-    let expression = parse_tree_or_expression(pairs[2].clone());
+    let expression = parse_tree_or_expression(pairs[3].clone());
 
     ParserNode::Loop(
         pairs[0].as_str().to_owned(),
@@ -478,27 +478,44 @@ fn get_error_message(input: &str, error: Error<Rule>) -> String {
         negatives: _,
     } = error.variant
     {
-        if positives[0] == Rule::EOI {
+        let fp = positives[0];
+
+        if fp == Rule::EOI {
             "unexpected character here"
-        } else if positives[0] == Rule::identifier {
+        } else if fp == Rule::identifier {
             "expected an identifier here"
         } else if positives.iter().any(|rule| *rule == Rule::comma) {
-            "expected a , or a closing delimiter here"
-        } else if positives[0] == Rule::equals {
+            if positives.iter().any(|rule| *rule == Rule::rparen) {
+                "expected , or ) here"
+            } else if positives.iter().any(|rule| *rule == Rule::rsquarb) {
+                "expected , or ] here"
+            } else {
+                "expected , here"
+            }
+        } else if fp == Rule::equals {
             if positives.len() > 1 && positives[1] == Rule::param_list {
                 "expected = here, or ( if this is a function"
             } else {
                 "expected = here"
             }
-        } else if positives[0] == Rule::rsquarb {
-            "expected an expression or ] here"
+        } else if fp == Rule::lsquarb {
+            "expected a [ here"
+        } else if fp == Rule::sub {
+            "expected expression or -expression here for range step"
+        } else if fp == Rule::rarrow {
+            "expected => here"
         } else if positives.iter().any(|rule| *rule == Rule::expression || *rule == Rule::value || *rule == Rule::file) {
-            if positives.len() > 1 {
-                "expected an expression or } here"
+            if positives.iter().any(|rule| *rule == Rule::rcurlb) {
+                "expected } here"
             } else {
                 "expected an expression here"
             }
+        } else if positives.iter().any(|rule| *rule == Rule::dotdot) {
+            "expected a .. here"
+        } else if positives.iter().any(|rule| *rule == Rule::rsquarb) {
+            "expected ] here"
         } else {
+            println!("POSITIVES: {:?}", positives);
             "failed to create error message. this should not happen"
         }
     } else {
