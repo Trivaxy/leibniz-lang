@@ -3,12 +3,7 @@ use std::collections::{HashMap, HashSet};
 use linked_hash_map::LinkedHashMap;
 use parser::{Operator, ParserNode, TypeConstraint};
 
-use crate::{
-    function::{Function, NativeFunction},
-    instruction::Instruction,
-    optimizations::Optimization,
-    runtime::LeibnizRuntime,
-};
+use crate::{function::{Function, NativeFunction}, instruction::Instruction, optimizations::Optimization, runtime::LeibnizRuntime, value::Value};
 
 pub struct CodeGen {
     function_table: HashMap<String, Function>,
@@ -109,7 +104,7 @@ impl CodeGen {
             panic!("tried to finalize a function, but there wasn't one being built");
         }
 
-        self.apply_basic_optimization();
+        // self.apply_basic_optimization();
 
         let func = self.current_function.take().unwrap();
         self.function_table.insert(func.name.clone(), func);
@@ -145,6 +140,34 @@ impl CodeGen {
                 },
                 1,
             ),
+        );
+
+        funcs.insert(
+            "Re",
+            NativeFunction::new(
+                |parameters, runtime| {
+                    runtime.push_value(match parameters[0] {
+                        Value::Real(_) => parameters[0].clone(),
+                        Value::Complex(c) => Value::Real(c.re),
+                        _ => Value::error()
+                    });
+                },
+                1
+            )
+        );
+
+        funcs.insert(
+            "Im",
+            NativeFunction::new(
+                |parameters, runtime| {
+                    runtime.push_value(match parameters[0] {
+                        Value::Real(_) => Value::real(0.0),
+                        Value::Complex(c) => Value::Real(c.im),
+                        _ => Value::error()
+                    });
+                },
+                1
+            )
         );
 
         let funcs: HashMap<String, NativeFunction> = funcs
