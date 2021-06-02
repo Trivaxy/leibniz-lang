@@ -35,6 +35,7 @@ pub struct LeibnizRuntime {
     functions: HashMap<usize, Function>,
     native_functions: HashMap<usize, NativeFunction>,
     types: HashMap<usize, Vec<String>>,
+    strings: HashMap<usize, String>,
     frames: Vec<StackFrame>,
     globals: HashMap<usize, Value>,
     preserved_globals: HashMap<usize, Value>,
@@ -48,6 +49,7 @@ impl LeibnizRuntime {
         functions: HashMap<usize, Function>,
         native_functions: HashMap<usize, NativeFunction>,
         types: HashMap<usize, Vec<String>>,
+        strings: HashMap<usize, String>
     ) -> Self {
         let mut frames = Vec::with_capacity(functions.len());
         frames.push(StackFrame::new(0, 0, HashMap::new(), Vec::new()));
@@ -57,6 +59,7 @@ impl LeibnizRuntime {
             functions: functions,
             native_functions: native_functions,
             types: types,
+            strings: strings,
             frames: frames,
             globals: HashMap::new(),
             preserved_globals: HashMap::new(),
@@ -148,6 +151,7 @@ impl LeibnizRuntime {
             Instruction::MakeArray(len) => self.make_array(*len),
             Instruction::MakeType(index) => self.make_type(*index),
             Instruction::LoadField(name) => self.load_field(&name.clone()), // TODO: figure out how to avoid this clone
+            Instruction::LoadString(index) => self.load_string(*index)
         }
     }
 
@@ -671,6 +675,10 @@ impl LeibnizRuntime {
         }
 
         self.push_value(custom.get(field).unwrap().clone());
+    }
+
+    fn load_string(&mut self, index: usize) {
+        self.push_value(Value::LString(self.strings.get(&index).unwrap().clone()));
     }
 
     fn error(&mut self, error: String) {

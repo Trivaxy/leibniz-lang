@@ -60,6 +60,7 @@ pub enum ParserNode {
     Loop(String, InnerNode, InnerNode), // a loop construct that works on ranges and a named parameter
     Factorial(InnerNode),               // factorial of an expression
     Access(InnerNode, String),          // accessing an expression's field
+    String(String),
     Tree(Vec<ParserNode>),              // a tree of nodes
 }
 
@@ -120,6 +121,7 @@ fn parse_value(value: Pair<Rule>) -> ParserNode {
         Rule::func_call => parse_func_call(pairs[0].clone()),
         Rule::array => parse_array(pairs[0].clone()),
         Rule::rloop => parse_loop(pairs[0].clone()),
+        Rule::string => parse_string(pairs[0].clone()),
         _ => {
             println!("Unknown parser pair: {:#?}", pairs);
             unreachable!()
@@ -388,6 +390,46 @@ fn parse_tree_or_expression(tree: Pair<Rule>) -> ParserNode {
     }
 
     ParserNode::Tree(nodes)
+}
+
+fn parse_string(string: Pair<Rule>) -> ParserNode {
+    let string = string.as_str().as_bytes();
+    let mut content = String::with_capacity(string.len());
+
+    let mut i = 1;
+    while i < string.len() - 1 {
+        if string[i] as char == '\\' {
+            match string[i + 1] as char {
+                '\\' => {
+                    i += 1;
+                    content.push('\\');
+                },
+                'n' => {
+                    i += 1;
+                    content.push('\n');
+                },
+                't' => {
+                    i += 1;
+                    content.push('\t');
+                },
+                'r' => {
+                    i += 1;
+                    content.push('\r');
+                },
+                '"' => {
+                    i += 1;
+                    content.push('"');
+                }
+                _ => {}
+            }
+        } else {
+            content.push(string[i] as char);
+        }
+
+        i += 1;
+    }
+
+    ParserNode::String(content)
 }
 
 fn parse_conditional<'a>(conditional: Pair<'a, Rule>, predicate: ParserNode) -> ParserNode {

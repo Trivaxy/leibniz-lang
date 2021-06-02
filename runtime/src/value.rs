@@ -10,6 +10,7 @@ pub enum Value {
     Complex(Complex64),
     Array(Vec<Value>),
     Custom(LinkedHashMap<String, Value>),
+    LString(String)
 }
 
 use Value::*;
@@ -100,6 +101,10 @@ impl PartialEq for Value {
                 }
                 _ => false,
             },
+            LString(string) => match other {
+                LString(other_string) => string == other_string,
+                _ => false
+            }
         }
     }
 }
@@ -117,8 +122,14 @@ impl ops::Add<Value> for Value {
                 Array(ref mut vals) => {
                     vals.push(self);
                     rhs
+                },
+                LString(string) => {
+                    let mut num = n.to_string();
+                    num.push_str(&string);
+
+                    Value::LString(num)
                 }
-                Custom(_) => Value::error(),
+                _ => Value::error(),
             },
             Complex(c) => match rhs {
                 Real(n) => Complex(c + n),
@@ -126,14 +137,24 @@ impl ops::Add<Value> for Value {
                 Array(ref mut vals) => {
                     vals.push(self);
                     rhs
+                },
+                LString(string) => {
+                    let mut num = c.to_string();
+                    num.push_str(&string);
+
+                    Value::LString(num)
                 }
-                Custom(_) => Value::error(),
+                _ => Value::error(),
             },
             Array(ref mut vals) => {
                 vals.push(rhs);
                 self
             }
             Custom(_) => Value::error(),
+            LString(mut string) => {
+                string.push_str(&rhs.to_string());
+                Value::LString(string)
+            }
         }
     }
 }
@@ -334,7 +355,8 @@ impl fmt::Display for Value {
                     .collect::<Vec<String>>();
 
                 write!(f, "<{}>", fields.join(", "))
-            }
+            },
+            LString(string) => write!(f, "{}", string)
         }
     }
 }

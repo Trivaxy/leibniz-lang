@@ -37,6 +37,7 @@ pub enum Instruction {
     MakeArray(usize), // Pops the specified number of elements off the stack, reverses them and creates an array containing them
     MakeType(usize), // Creates the custom type at the given index. This will pop the number of arguments needed off the stack, reversing them and supplying them to the custom object, and then pushing the custom object onto the stack
     LoadField(String), // Pops a custom object from the top of the stack and loads the value of its field at the specified index
+    LoadString(usize), // Loads a string from the specified index and pushes it onto the stack
 }
 
 impl Display for Instruction {
@@ -73,6 +74,7 @@ impl Display for Instruction {
             Instruction::MakeArray(n) => format!("MAKEARR {}", n),
             Instruction::MakeType(n) => format!("MAKETYPE {}", n),
             Instruction::LoadField(n) => format!("LDFLD \"{}\"", n),
+            Instruction::LoadString(n) => format!("LDSTR {}", n)
         };
 
         write!(f, "{}", instr)
@@ -113,6 +115,7 @@ impl Debug for Instruction {
             Instruction::MakeArray(n) => format!("MAKEARR {}", n),
             Instruction::MakeType(n) => format!("MAKETYPE {}", n),
             Instruction::LoadField(n) => format!("LDFLD \"{}\"", n),
+            Instruction::LoadString(n) => format!("LDSTR {}", n)
         };
 
         write!(f, "{}", instr)

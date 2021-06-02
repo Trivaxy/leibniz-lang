@@ -21,6 +21,7 @@ pub struct CodeGen {
     type_index_table: HashMap<String, usize>,
     local_table: HashMap<String, usize>,
     global_table: HashMap<String, usize>,
+    string_table: HashMap<String, usize>,
     preserved_locals: HashSet<String>,
     current_function: Option<Function>,
     entry_point: String,
@@ -51,6 +52,7 @@ impl CodeGen {
             type_index_table: HashMap::new(),
             local_table: HashMap::new(),
             global_table: HashMap::new(),
+            string_table: HashMap::new(),
             preserved_locals: HashSet::new(),
             current_function: Some(Function::new(entry_point.clone(), Vec::new())),
             entry_point: entry_point,
@@ -90,10 +92,15 @@ impl CodeGen {
             finished_type_table.insert(*type_index_table.get(&r#type.0).unwrap(), fields);
         }
 
+        let finished_string_table = self.string_table.iter()
+            .map(|kvp| (*kvp.1, kvp.0.to_owned()))
+            .collect();
+
         LeibnizRuntime::new(
             finished_func_table,
             finished_native_func_table,
             finished_type_table,
+            finished_string_table
         )
     }
 
@@ -194,7 +201,8 @@ impl CodeGen {
             ParserNode::Factorial(expression_node) => self.accept_factorial(*expression_node),
             ParserNode::Access(expression_node, field_name) => {
                 self.accept_access(*expression_node, field_name)
-            }
+            },
+            ParserNode::String(string) => self.accept_string(string),
             ParserNode::Tree(tree_nodes) => self.accept_tree(tree_nodes),
         }
     }
@@ -497,6 +505,16 @@ impl CodeGen {
         self.emit_instr(Instruction::LoadField(field_name));
     }
 
+    fn accept_string(&mut self, string: String) {
+        let index = if !self.has_string(&string) {
+            self.register_string(string)
+        } else {
+            self.string_index(&string)
+        };
+
+        self.emit_instr(Instruction::LoadString(index));
+    }
+
     fn accept_tree(&mut self, tree_nodes: Vec<ParserNode>) {
         for node in tree_nodes {
             self.accept_node(node);
@@ -590,6 +608,29 @@ impl CodeGen {
         self.global_table.insert(identifier, global_index);
 
         global_index
+    }
+
+    fn has_string(&self, string: &str) -> bool {
+        self.string_table.contains_key(string)
+    }
+
+    fn string_index(&self, string: &str) -> usize {
+        if !self.has_string(string) {
+            panic!("the string \"{}\" has not been registered", string)
+        }
+
+        *self.string_table.get(string).unwrap()
+    }
+
+    fn register_string(&mut self, string: String) -> usize {
+        if self.has_string(&string) {
+            panic!("tried to register string \"{}\" when it already exists");
+        }
+
+        let string_index = self.string_table.len();
+        self.string_table.insert(string, string_index);
+
+        string_index
     }
 
     fn has_function(&self, identifier: &str) -> bool {
