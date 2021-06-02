@@ -434,8 +434,8 @@ fn parse_string(string: Pair<Rule>) -> ParserNode {
 
 fn parse_conditional<'a>(conditional: Pair<'a, Rule>, predicate: ParserNode) -> ParserNode {
     let pairs = pairs_to_vec(conditional);
-    let true_branch = parse_tree_or_expression(pairs[0].clone());
-    let false_branch = parse_tree_or_expression(pairs[2].clone());
+    let true_branch = parse_tree_or_expression(pairs[1].clone());
+    let false_branch = parse_tree_or_expression(pairs[3].clone());
 
     ParserNode::Conditional(
         Box::new(predicate),
