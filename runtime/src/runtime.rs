@@ -49,7 +49,7 @@ impl LeibnizRuntime {
         functions: HashMap<usize, Function>,
         native_functions: HashMap<usize, NativeFunction>,
         types: HashMap<usize, Vec<String>>,
-        strings: HashMap<usize, String>
+        strings: HashMap<usize, String>,
     ) -> Self {
         let mut frames = Vec::with_capacity(functions.len());
         frames.push(StackFrame::new(0, 0, HashMap::new(), Vec::new()));
@@ -151,7 +151,7 @@ impl LeibnizRuntime {
             Instruction::MakeArray(len) => self.make_array(*len),
             Instruction::MakeType(index) => self.make_type(*index),
             Instruction::LoadField(name) => self.load_field(&name.clone()), // TODO: figure out how to avoid this clone
-            Instruction::LoadString(index) => self.load_string(*index)
+            Instruction::LoadString(index) => self.load_string(*index),
         }
     }
 
@@ -648,7 +648,7 @@ impl LeibnizRuntime {
         let values = self.pop_values_reverse(len);
         let r#type = self.types.get(&index).unwrap();
         let mut fields = LinkedHashMap::with_capacity(len);
-        
+
         for i in 0..len {
             fields.insert(r#type[i].clone(), values[i].clone());
         }

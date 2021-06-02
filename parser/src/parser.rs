@@ -61,7 +61,7 @@ pub enum ParserNode {
     Factorial(InnerNode),               // factorial of an expression
     Access(InnerNode, String),          // accessing an expression's field
     String(String),
-    Tree(Vec<ParserNode>),              // a tree of nodes
+    Tree(Vec<ParserNode>), // a tree of nodes
 }
 
 impl ParserNode {
@@ -403,19 +403,19 @@ fn parse_string(string: Pair<Rule>) -> ParserNode {
                 '\\' => {
                     i += 1;
                     content.push('\\');
-                },
+                }
                 'n' => {
                     i += 1;
                     content.push('\n');
-                },
+                }
                 't' => {
                     i += 1;
                     content.push('\t');
-                },
+                }
                 'r' => {
                     i += 1;
                     content.push('\r');
-                },
+                }
                 '"' => {
                     i += 1;
                     content.push('"');
@@ -514,7 +514,7 @@ fn get_error_message(input: &str, error: Error<Rule>) -> String {
         LineColLocation::Pos(pos) => pos,
         LineColLocation::Span(line, col) => (line.0, col.0), // this never gets reached, anyways
     };
-    
+
     let error_msg = if let ErrorVariant::ParsingError {
         positives,
         negatives: _,
@@ -546,7 +546,10 @@ fn get_error_message(input: &str, error: Error<Rule>) -> String {
             "expected expression or -expression here for range step"
         } else if fp == Rule::rarrow {
             "expected => here"
-        } else if positives.iter().any(|rule| *rule == Rule::expression || *rule == Rule::value || *rule == Rule::file) {
+        } else if positives
+            .iter()
+            .any(|rule| *rule == Rule::expression || *rule == Rule::value || *rule == Rule::file)
+        {
             if positives.iter().any(|rule| *rule == Rule::rcurlb) {
                 "expected } here"
             } else {

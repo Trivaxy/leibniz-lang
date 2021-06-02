@@ -74,7 +74,7 @@ impl Display for Instruction {
             Instruction::MakeArray(n) => format!("MAKEARR {}", n),
             Instruction::MakeType(n) => format!("MAKETYPE {}", n),
             Instruction::LoadField(n) => format!("LDFLD \"{}\"", n),
-            Instruction::LoadString(n) => format!("LDSTR {}", n)
+            Instruction::LoadString(n) => format!("LDSTR {}", n),
         };
 
         write!(f, "{}", instr)
@@ -115,7 +115,7 @@ impl Debug for Instruction {
             Instruction::MakeArray(n) => format!("MAKEARR {}", n),
             Instruction::MakeType(n) => format!("MAKETYPE {}", n),
             Instruction::LoadField(n) => format!("LDFLD \"{}\"", n),
-            Instruction::LoadString(n) => format!("LDSTR {}", n)
+            Instruction::LoadString(n) => format!("LDSTR {}", n),
         };
 
         write!(f, "{}", instr)

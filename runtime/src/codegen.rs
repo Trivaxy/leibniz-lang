@@ -3,7 +3,13 @@ use std::collections::{HashMap, HashSet};
 use linked_hash_map::LinkedHashMap;
 use parser::{Operator, ParserNode, TypeConstraint};
 
-use crate::{function::{Function, NativeFunction}, instruction::Instruction, optimizations::Optimization, runtime::LeibnizRuntime, value::Value};
+use crate::{
+    function::{Function, NativeFunction},
+    instruction::Instruction,
+    optimizations::Optimization,
+    runtime::LeibnizRuntime,
+    value::Value,
+};
 
 pub struct CodeGen {
     function_table: HashMap<String, Function>,
@@ -87,7 +93,9 @@ impl CodeGen {
             finished_type_table.insert(*type_index_table.get(&r#type.0).unwrap(), fields);
         }
 
-        let finished_string_table = self.string_table.iter()
+        let finished_string_table = self
+            .string_table
+            .iter()
             .map(|kvp| (*kvp.1, kvp.0.to_owned()))
             .collect();
 
@@ -95,7 +103,7 @@ impl CodeGen {
             finished_func_table,
             finished_native_func_table,
             finished_type_table,
-            finished_string_table
+            finished_string_table,
         )
     }
 
@@ -149,11 +157,11 @@ impl CodeGen {
                     runtime.push_value(match parameters[0] {
                         Value::Real(_) => parameters[0].clone(),
                         Value::Complex(c) => Value::Real(c.re),
-                        _ => Value::error()
+                        _ => Value::error(),
                     });
                 },
-                1
-            )
+                1,
+            ),
         );
 
         funcs.insert(
@@ -163,11 +171,11 @@ impl CodeGen {
                     runtime.push_value(match parameters[0] {
                         Value::Real(_) => Value::real(0.0),
                         Value::Complex(c) => Value::Real(c.im),
-                        _ => Value::error()
+                        _ => Value::error(),
                     });
                 },
-                1
-            )
+                1,
+            ),
         );
 
         let funcs: HashMap<String, NativeFunction> = funcs
@@ -224,7 +232,7 @@ impl CodeGen {
             ParserNode::Factorial(expression_node) => self.accept_factorial(*expression_node),
             ParserNode::Access(expression_node, field_name) => {
                 self.accept_access(*expression_node, field_name)
-            },
+            }
             ParserNode::String(string) => self.accept_string(string),
             ParserNode::Tree(tree_nodes) => self.accept_tree(tree_nodes),
         }
@@ -647,7 +655,10 @@ impl CodeGen {
 
     fn register_string(&mut self, string: String) -> usize {
         if self.has_string(&string) {
-            panic!("tried to register string \"{}\" when it already exists", string);
+            panic!(
+                "tried to register string \"{}\" when it already exists",
+                string
+            );
         }
 
         let string_index = self.string_table.len();

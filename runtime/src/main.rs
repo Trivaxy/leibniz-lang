@@ -1,4 +1,4 @@
-use std::{fs, time::Instant};
+use std::fs;
 
 use codegen::CodeGen;
 

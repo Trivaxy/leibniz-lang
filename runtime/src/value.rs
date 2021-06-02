@@ -10,7 +10,7 @@ pub enum Value {
     Complex(Complex64),
     Array(Vec<Value>),
     Custom(LinkedHashMap<String, Value>),
-    LString(String)
+    LString(String),
 }
 
 use Value::*;
@@ -103,8 +103,8 @@ impl PartialEq for Value {
             },
             LString(string) => match other {
                 LString(other_string) => string == other_string,
-                _ => false
-            }
+                _ => false,
+            },
         }
     }
 }
@@ -122,7 +122,7 @@ impl ops::Add<Value> for Value {
                 Array(ref mut vals) => {
                     vals.push(self);
                     rhs
-                },
+                }
                 LString(string) => {
                     let mut num = n.to_string();
                     num.push_str(&string);
@@ -137,7 +137,7 @@ impl ops::Add<Value> for Value {
                 Array(ref mut vals) => {
                     vals.push(self);
                     rhs
-                },
+                }
                 LString(string) => {
                     let mut num = c.to_string();
                     num.push_str(&string);
@@ -355,8 +355,8 @@ impl fmt::Display for Value {
                     .collect::<Vec<String>>();
 
                 write!(f, "<{}>", fields.join(", "))
-            },
-            LString(string) => write!(f, "{}", string)
+            }
+            LString(string) => write!(f, "{}", string),
         }
     }
 }
