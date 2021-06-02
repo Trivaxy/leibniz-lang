@@ -645,12 +645,12 @@ impl LeibnizRuntime {
 
     fn make_type(&mut self, index: usize) {
         let len = self.types.get(&index).unwrap().len();
-        let mut values = self.pop_values_reverse(len);
-        let mut fields = LinkedHashMap::with_capacity(len);
+        let values = self.pop_values_reverse(len);
         let r#type = self.types.get(&index).unwrap();
-
+        let mut fields = LinkedHashMap::with_capacity(len);
+        
         for i in 0..len {
-            fields.insert(r#type[i].clone(), values.pop().unwrap());
+            fields.insert(r#type[i].clone(), values[i].clone());
         }
 
         self.push_value(Value::Custom(fields));
