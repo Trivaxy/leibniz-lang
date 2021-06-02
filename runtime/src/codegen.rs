@@ -624,7 +624,7 @@ impl CodeGen {
 
     fn register_string(&mut self, string: String) -> usize {
         if self.has_string(&string) {
-            panic!("tried to register string \"{}\" when it already exists");
+            panic!("tried to register string \"{}\" when it already exists", string);
         }
 
         let string_index = self.string_table.len();
