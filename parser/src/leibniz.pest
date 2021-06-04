@@ -62,7 +62,7 @@ type_decl = { letk ~ identifier ~ equals ~ lst ~ param ~ (comma ~ param)* ~ grt 
 
 assignment = { identifier ~ equals ~ (identifier ~ equals)* ~ expression_or_tree }
 
-tree = { lcurlb ~ action* ~ rcurlb }
+tree = { lcurlb ~ action+ ~ rcurlb }
 expression_or_tree = _{ (tree | expression) }
 
 conditional = { rarrow ~ expression_or_tree ~ bar ~ expression_or_tree }
