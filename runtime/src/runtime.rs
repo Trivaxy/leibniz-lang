@@ -534,26 +534,35 @@ impl LeibnizRuntime {
         let index = self.pop_f64();
 
         if index.fract() != 0.0 || index < 0.0 {
-            self.error(format!(
-                "tried to index array with invalid number {}",
-                index
-            ));
+            self.error(format!("tried to index with invalid number {}", index));
             return;
         }
 
+        let index = index as usize;
+
         match self.pop_value() {
-            Array(values) => match values.get(index as usize) {
+            Array(values) => match values.get(index) {
                 Some(value) => self.push_value(value.clone()),
                 None => {
                     self.error(format!(
-                        "tried to access array with out of bounds value: {}",
+                        "tried to index array with out of bounds value: {}",
                         index
                     ));
                     return;
                 }
             },
+            LString(string) => {
+                if index >= string.len() {
+                    self.error(format!(
+                        "tried to index string with out of bounds value: {}",
+                        index
+                    ));
+                } else {
+                    self.push_value(LString(string.chars().nth(index).unwrap().to_string()));
+                }
+            }
             _ => {
-                self.error("tried to index a non-array value".to_string());
+                self.error("cannot index a value unless it is an array or string".to_string());
                 return;
             }
         }
